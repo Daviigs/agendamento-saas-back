@@ -81,5 +81,64 @@ public class AppointmentsController {
             return ResponseEntity.ok(appointments);
         }
     }
+
+    /**
+     * GET /appointments/{appointmentId}
+     * Busca um agendamento específico por ID
+     *
+     * @param appointmentId ID do agendamento (UUID)
+     * @return Agendamento encontrado (200 OK)
+     * @throws RuntimeException se o agendamento não for encontrado (retorna 500)
+     */
+    @GetMapping("/{appointmentId}")
+    public ResponseEntity<AppointmentsEntity> getAppointmentById(@PathVariable String appointmentId) {
+        AppointmentsEntity appointment = appointmentsService.getAppointmentById(java.util.UUID.fromString(appointmentId));
+        return ResponseEntity.ok(appointment);
+    }
+
+    /**
+     * GET /appointments/future?userPhone={phone}
+     * Retorna todos os agendamentos futuros de um número de telefone
+     * Considera como "futuros" os agendamentos cuja data é >= data atual
+     *
+     * @param userPhone Número de telefone do usuário
+     * @return Lista de agendamentos futuros ordenados por data e hora
+     */
+    @GetMapping("/future")
+    public ResponseEntity<List<AppointmentsEntity>> getFutureAppointments(
+            @RequestParam String userPhone) {
+        List<AppointmentsEntity> appointments = appointmentsService.getFutureAppointmentsByPhone(userPhone);
+        return ResponseEntity.ok(appointments);
+    }
+
+    /**
+     * GET /appointments/past?userPhone={phone}
+     * Retorna todos os agendamentos passados de um número de telefone
+     * Considera como "passados" os agendamentos cuja data é < data atual
+     *
+     * @param userPhone Número de telefone do usuário
+     * @return Lista de agendamentos passados ordenados por data decrescente (mais recente primeiro)
+     */
+    @GetMapping("/past")
+    public ResponseEntity<List<AppointmentsEntity>> getPastAppointments(
+            @RequestParam String userPhone) {
+        List<AppointmentsEntity> appointments = appointmentsService.getPastAppointmentsByPhone(userPhone);
+        return ResponseEntity.ok(appointments);
+    }
+
+    /**
+     * DELETE /appointments/{appointmentId}
+     * Cancela um agendamento existente
+     * Remove o agendamento do banco de dados, liberando o horário para novos agendamentos
+     *
+     * @param appointmentId ID do agendamento a ser cancelado (UUID)
+     * @return 204 No Content se cancelado com sucesso
+     * @throws RuntimeException se o agendamento não for encontrado (retorna 500)
+     */
+    @DeleteMapping("/{appointmentId}")
+    public ResponseEntity<Void> cancelAppointment(@PathVariable String appointmentId) {
+        appointmentsService.cancelAppointment(java.util.UUID.fromString(appointmentId));
+        return ResponseEntity.noContent().build();
+    }
 }
 

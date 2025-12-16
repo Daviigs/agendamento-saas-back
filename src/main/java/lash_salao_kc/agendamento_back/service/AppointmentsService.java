@@ -114,6 +114,66 @@ public class AppointmentsService {
     }
 
     /**
+     * Busca um agendamento específico por ID
+     *
+     * @param appointmentId ID do agendamento
+     * @return Agendamento encontrado
+     * @throws RuntimeException se o agendamento não for encontrado
+     */
+    public AppointmentsEntity getAppointmentById(UUID appointmentId) {
+        return appoitmentsRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Agendamento não encontrado com ID: " + appointmentId));
+    }
+
+    /**
+     * Busca todos os agendamentos futuros de um número de telefone
+     * Considera como "futuros" os agendamentos cuja data é maior ou igual à data atual
+     *
+     * @param userPhone Número de telefone do usuário
+     * @return Lista de agendamentos futuros ordenados por data e hora
+     */
+    public List<AppointmentsEntity> getFutureAppointmentsByPhone(String userPhone) {
+        LocalDate today = LocalDate.now();
+
+        return appoitmentsRepository.findAll().stream()
+                .filter(appointment -> appointment.getUserPhone().equals(userPhone))
+                .filter(appointment -> appointment.getDate().isAfter(today) || appointment.getDate().equals(today))
+                .sorted((a1, a2) -> {
+                    // Ordena por data e depois por horário
+                    int dateComparison = a1.getDate().compareTo(a2.getDate());
+                    if (dateComparison != 0) {
+                        return dateComparison;
+                    }
+                    return a1.getStartTime().compareTo(a2.getStartTime());
+                })
+                .toList();
+    }
+
+    /**
+     * Busca todos os agendamentos passados de um número de telefone
+     * Considera como "passados" os agendamentos cuja data é menor que a data atual
+     *
+     * @param userPhone Número de telefone do usuário
+     * @return Lista de agendamentos passados ordenados por data e hora (mais recente primeiro)
+     */
+    public List<AppointmentsEntity> getPastAppointmentsByPhone(String userPhone) {
+        LocalDate today = LocalDate.now();
+
+        return appoitmentsRepository.findAll().stream()
+                .filter(appointment -> appointment.getUserPhone().equals(userPhone))
+                .filter(appointment -> appointment.getDate().isBefore(today))
+                .sorted((a1, a2) -> {
+                    // Ordena por data decrescente (mais recente primeiro) e depois por horário
+                    int dateComparison = a2.getDate().compareTo(a1.getDate());
+                    if (dateComparison != 0) {
+                        return dateComparison;
+                    }
+                    return a2.getStartTime().compareTo(a1.getStartTime());
+                })
+                .toList();
+    }
+
+    /**
      * Cria um novo agendamento
      * - Busca o serviço selecionado no banco
      * - Calcula o endTime baseado na duração do serviço
@@ -196,6 +256,23 @@ public class AppointmentsService {
                                 existing.getUserName()));
             }
         }
+    }
+
+    /**
+     * Cancela um agendamento pelo ID
+     * Remove o agendamento do banco de dados, liberando o horário para novos agendamentos
+     *
+     * @param appointmentId ID do agendamento a ser cancelado
+     * @throws RuntimeException se o agendamento não for encontrado
+     */
+    @Transactional
+    public void cancelAppointment(UUID appointmentId) {
+        // 1. Buscar o agendamento no banco
+        AppointmentsEntity appointment = appoitmentsRepository.findById(appointmentId)
+                .orElseThrow(() -> new RuntimeException("Agendamento não encontrado com ID: " + appointmentId));
+
+        // 2. Deletar o agendamento (libera o horário)
+        appoitmentsRepository.delete(appointment);
     }
 
 }
