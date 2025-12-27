@@ -46,4 +46,7 @@ public class AppointmentsEntity {
     @NotNull
     @Column(name = "user_phone", nullable = false)
     private String userPhone;
+
+    @Column(nullable = false)
+    private boolean reminderSent = false;
 }

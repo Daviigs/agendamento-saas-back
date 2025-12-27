@@ -1,5 +1,6 @@
 package lash_salao_kc.agendamento_back.service;
 
+import lash_salao_kc.agendamento_back.domain.dto.Whats;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
 import lash_salao_kc.agendamento_back.repository.AppoitmentsRepository;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +22,7 @@ public class AppointmentsService {
 
     private final AppoitmentsRepository appoitmentsRepository;
     private final ServicesRepository servicesRepository;
+    private final WhatsappSerivce whatsAppService;
 
     // Horários de funcionamento do salão
     private static final LocalTime BUSINESS_START = LocalTime.of(9, 0);  // 09:00
@@ -212,6 +215,19 @@ public class AppointmentsService {
         appointment.setService(service);
         appointment.setUserName(userName);
         appointment.setUserPhone(userPhone);
+
+        // 🔔 ENVIA WHATSAPP (simples)
+        // Remove o "+" caso venha com "+55", mantém apenas "55"
+        String telefoneParaWhatsapp = userPhone.startsWith("+") ? userPhone.substring(1) : userPhone;
+
+        Whats whatsDto = new Whats();
+        whatsDto.setTelefone(telefoneParaWhatsapp); // Envia apenas com "55" (sem "+")
+        whatsDto.setNome(userName);
+        whatsDto.setData(date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        whatsDto.setHora(startTime.format(DateTimeFormatter.ofPattern("HH:mm")));
+        whatsDto.setServico(service.getName()); // Nome do serviço
+
+        whatsAppService.enviarAgendamento(whatsDto);
 
         // 6. Salvar no banco (esse período agora fica indisponível)
         return appoitmentsRepository.save(appointment);
