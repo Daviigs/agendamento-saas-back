@@ -23,6 +23,7 @@ public class AppointmentsService {
     private final AppoitmentsRepository appoitmentsRepository;
     private final ServicesRepository servicesRepository;
     private final WhatsappSerivce whatsAppService;
+    private final BlockedDayService blockedDayService;
 
     // Horários de funcionamento do salão
     private static final LocalTime BUSINESS_START = LocalTime.of(9, 0);  // 09:00
@@ -33,11 +34,17 @@ public class AppointmentsService {
      * Retorna todos os horários disponíveis para uma data específica
      * Horários disponíveis são de 09:00 às 18:00, pulando de 30 em 30 minutos
      * Remove os horários que já possuem agendamentos
+     * Retorna vazio se a data estiver bloqueada (feriado ou dia de folga)
      *
      * @param date Data para verificar disponibilidade
-     * @return Lista de horários disponíveis (LocalTime)
+     * @return Lista de horários disponíveis (LocalTime) ou lista vazia se o dia estiver bloqueado
      */
     public List<LocalTime> getAvailableTimeSlots(LocalDate date) {
+        // Verifica se a data está bloqueada
+        if (blockedDayService.isDateBlocked(date)) {
+            return new ArrayList<>(); // Retorna lista vazia se o dia estiver bloqueado
+        }
+
         // Buscar todos os agendamentos da data
         List<AppointmentsEntity> appointments = appoitmentsRepository.findAll().stream()
                 .filter(appointment -> appointment.getDate().equals(date))
@@ -194,20 +201,25 @@ public class AppointmentsService {
      */
     @Transactional
     public AppointmentsEntity createAppointment(UUID serviceId, LocalDate date, LocalTime startTime, String userName, String userPhone) {
-        // 1. Buscar o serviço no banco de dados
+        // 1. Validar se a data está bloqueada (feriado ou dia de folga)
+        if (blockedDayService.isDateBlocked(date)) {
+            throw new RuntimeException("Não é possível agendar nesta data. O salão estará fechado.");
+        }
+
+        // 2. Buscar o serviço no banco de dados
         ServicesEntity service = servicesRepository.findById(serviceId)
                 .orElseThrow(() -> new RuntimeException("Serviço não encontrado com ID: " + serviceId));
 
-        // 2. Calcular o horário de término baseado na duração do serviço
+        // 3. Calcular o horário de término baseado na duração do serviço
         LocalTime endTime = startTime.plusMinutes(service.getDuration());
 
-        // 3. Validar se está dentro do horário de funcionamento
+        // 4. Validar se está dentro do horário de funcionamento
         validateBusinessHours(startTime, endTime);
 
-        // 4. Validar se o horário está disponível (não conflita com outros agendamentos)
+        // 5. Validar se o horário está disponível (não conflita com outros agendamentos)
         validateNoConflicts(date, startTime, endTime);
 
-        // 5. Criar o agendamento
+        // 6. Criar o agendamento
         AppointmentsEntity appointment = new AppointmentsEntity();
         appointment.setDate(date);
         appointment.setStartTime(startTime);
@@ -229,7 +241,7 @@ public class AppointmentsService {
 
         whatsAppService.enviarAgendamento(whatsDto);
 
-        // 6. Salvar no banco (esse período agora fica indisponível)
+        // 7. Salvar no banco (esse período agora fica indisponível)
         return appoitmentsRepository.save(appointment);
     }
 
