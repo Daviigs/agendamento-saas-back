@@ -4,6 +4,7 @@ import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
 import lash_salao_kc.agendamento_back.repository.AppoitmentsRepository;
 import lash_salao_kc.agendamento_back.repository.ServicesRepository;
+import lash_salao_kc.agendamento_back.utils.BuildMensagens;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,8 @@ public class AppointmentsService {
 
     private final AppoitmentsRepository appoitmentsRepository;
     private final ServicesRepository servicesRepository;
+    private final WhatsAppService whatsAppService;
+    private final BuildMensagens mensagens;
 
     // Horários de funcionamento do salão
     private static final LocalTime BUSINESS_START = LocalTime.of(9, 0);  // 09:00
@@ -190,21 +193,18 @@ public class AppointmentsService {
      * @throws RuntimeException se o serviço não existir, horário estiver ocupado ou fora do expediente
      */
     @Transactional
-    public AppointmentsEntity createAppointment(UUID serviceId, LocalDate date, LocalTime startTime, String userName, String userPhone) {
-        // 1. Buscar o serviço no banco de dados
+    public AppointmentsEntity createAppointment(
+            UUID serviceId,
+            LocalDate date,
+            LocalTime startTime,
+            String userName,
+            String userPhone
+    ) {
         ServicesEntity service = servicesRepository.findById(serviceId)
-                .orElseThrow(() -> new RuntimeException("Serviço não encontrado com ID: " + serviceId));
+                .orElseThrow(() -> new RuntimeException("Service not found"));
 
-        // 2. Calcular o horário de término baseado na duração do serviço
         LocalTime endTime = startTime.plusMinutes(service.getDuration());
 
-        // 3. Validar se está dentro do horário de funcionamento
-        validateBusinessHours(startTime, endTime);
-
-        // 4. Validar se o horário está disponível (não conflita com outros agendamentos)
-        validateNoConflicts(date, startTime, endTime);
-
-        // 5. Criar o agendamento
         AppointmentsEntity appointment = new AppointmentsEntity();
         appointment.setDate(date);
         appointment.setStartTime(startTime);
@@ -213,50 +213,17 @@ public class AppointmentsService {
         appointment.setUserName(userName);
         appointment.setUserPhone(userPhone);
 
-        // 6. Salvar no banco (esse período agora fica indisponível)
-        return appoitmentsRepository.save(appointment);
+        AppointmentsEntity saved = appoitmentsRepository.save(appointment);
+
+        // ENVIO DO WHATS
+        whatsAppService.sendMessage(
+                userPhone,
+                mensagens.buildConfirmationMessage(saved)
+        );
+
+        return saved;
     }
 
-    /**
-     * Valida se o horário está dentro do horário de funcionamento do salão
-     */
-    private void validateBusinessHours(LocalTime startTime, LocalTime endTime) {
-        if (startTime.isBefore(BUSINESS_START)) {
-            throw new RuntimeException(
-                    String.format("Horário de início %s está antes do horário de abertura (%s)",
-                            startTime, BUSINESS_START));
-        }
-
-        if (endTime.isAfter(BUSINESS_END)) {
-            throw new RuntimeException(
-                    String.format("Horário de término %s excede o horário de fechamento (%s). " +
-                            "O salão fecha às %s", endTime, BUSINESS_END, BUSINESS_END));
-        }
-    }
-
-    /**
-     * Valida se não há conflitos com agendamentos existentes
-     * Dois agendamentos conflitam se: startA < endB AND startB < endA
-     */
-    private void validateNoConflicts(LocalDate date, LocalTime startTime, LocalTime endTime) {
-        List<AppointmentsEntity> existingAppointments = appoitmentsRepository.findAll().stream()
-                .filter(appointment -> appointment.getDate().equals(date))
-                .toList();
-
-        for (AppointmentsEntity existing : existingAppointments) {
-            // Verifica se há conflito: startTime < existing.endTime AND endTime > existing.startTime
-            boolean hasConflict = startTime.isBefore(existing.getEndTime())
-                    && endTime.isAfter(existing.getStartTime());
-
-            if (hasConflict) {
-                throw new RuntimeException(
-                        String.format("Horário selecionado (%s - %s) conflita com agendamento existente (%s - %s) de %s",
-                                startTime, endTime,
-                                existing.getStartTime(), existing.getEndTime(),
-                                existing.getUserName()));
-            }
-        }
-    }
 
     /**
      * Cancela um agendamento pelo ID
