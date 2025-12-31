@@ -1,5 +1,6 @@
 package lash_salao_kc.agendamento_back.service;
 
+import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
 import lash_salao_kc.agendamento_back.repository.ServicesRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,18 +17,22 @@ public class ServicesService {
     private final ServicesRepository servicesRepository;
 
     public ServicesEntity saveService(ServicesEntity entity){
+        String tenantId = TenantContext.getTenantId();
+        entity.setTenantId(tenantId);
         return servicesRepository.save(entity);
     }
 
     public List<ServicesEntity> findAll(){
-        return servicesRepository.findAll();
+        String tenantId = TenantContext.getTenantId();
+        return servicesRepository.findByTenantId(tenantId);
     }
 
     /**
-     * Busca um serviço por ID
+     * Busca um serviço por ID (filtrado por tenant)
      */
     public ServicesEntity findById(UUID id) {
-        return servicesRepository.findById(id)
+        String tenantId = TenantContext.getTenantId();
+        return servicesRepository.findByIdAndTenantId(id, tenantId)
                 .orElseThrow(() -> new RuntimeException("Serviço não encontrado com ID: " + id));
     }
 

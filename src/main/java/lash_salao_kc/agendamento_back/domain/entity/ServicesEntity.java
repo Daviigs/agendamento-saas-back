@@ -21,6 +21,10 @@ public class ServicesEntity {
     private UUID id;
 
     @NotNull
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
+    @NotNull
     private String name;
 
     @NotNull

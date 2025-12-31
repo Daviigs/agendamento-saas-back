@@ -14,18 +14,23 @@ import java.util.UUID;
 public interface BlockedDayRepository extends JpaRepository<BlockedDayEntity, UUID> {
 
     /**
-     * Busca bloqueio por data específica
+     * Busca bloqueio por data específica e tenant
      */
-    Optional<BlockedDayEntity> findBySpecificDate(LocalDate date);
+    Optional<BlockedDayEntity> findByTenantIdAndSpecificDate(String tenantId, LocalDate date);
 
     /**
-     * Busca bloqueio recorrente por dia da semana
+     * Busca bloqueio recorrente por dia da semana e tenant
      */
-    Optional<BlockedDayEntity> findByDayOfWeekAndRecurring(DayOfWeek dayOfWeek, boolean recurring);
+    Optional<BlockedDayEntity> findByTenantIdAndDayOfWeekAndRecurring(String tenantId, DayOfWeek dayOfWeek, boolean recurring);
 
     /**
-     * Lista todos os bloqueios recorrentes (dias da semana)
+     * Lista todos os bloqueios recorrentes (dias da semana) de um tenant
      */
-    List<BlockedDayEntity> findByRecurring(boolean recurring);
+    List<BlockedDayEntity> findByTenantIdAndRecurring(String tenantId, boolean recurring);
+
+    /**
+     * Lista todos os bloqueios de um tenant
+     */
+    List<BlockedDayEntity> findByTenantId(String tenantId);
 }
 

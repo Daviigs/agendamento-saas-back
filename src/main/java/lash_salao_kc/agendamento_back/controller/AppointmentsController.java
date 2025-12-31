@@ -23,19 +23,20 @@ public class AppointmentsController {
 
     /**
      * POST /appointments
-     * Cria um novo agendamento
+     * Cria um novo agendamento com um ou mais serviços
      *
      * Request body:
      * {
-     *   "serviceId": "uuid-do-servico",
+     *   "serviceIds": ["uuid-do-servico-1", "uuid-do-servico-2"],
      *   "date": "2024-12-15",
      *   "startTime": "10:00",
-     *   "userName": "João Silva"
+     *   "userName": "João Silva",
+     *   "userPhone": "5511999999999"
      * }
      *
      * Processo:
-     * 1. Busca o serviço selecionado
-     * 2. Calcula endTime = startTime + duração do serviço
+     * 1. Busca todos os serviços selecionados
+     * 2. Calcula endTime = startTime + soma das durações dos serviços
      * 3. Valida se está dentro do horário de funcionamento (09:00 - 18:00)
      * 4. Valida se não conflita com outros agendamentos
      * 5. Salva o agendamento (esse período fica indisponível)
@@ -46,7 +47,7 @@ public class AppointmentsController {
     @PostMapping
     public ResponseEntity<AppointmentsEntity> createAppointment(@Valid @RequestBody CreateAppointmentRequest request) {
         AppointmentsEntity appointment = appointmentsService.createAppointment(
-                request.getServiceId(),
+                request.getServiceIds(),
                 request.getDate(),
                 request.getStartTime(),
                 request.getUserName(),
@@ -68,32 +69,6 @@ public class AppointmentsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         List<LocalTime> availableSlots = appointmentsService.getAvailableTimeSlots(date);
         return ResponseEntity.ok(availableSlots);
-    }
-
-    @GetMapping
-    public ResponseEntity<List<AppointmentsEntity>> getAppointments(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        if (date != null) {
-            List<AppointmentsEntity> appointments = appointmentsService.getAppointmentsByDate(date);
-            return ResponseEntity.ok(appointments);
-        } else {
-            List<AppointmentsEntity> appointments = appointmentsService.getAllAppointments();
-            return ResponseEntity.ok(appointments);
-        }
-    }
-
-    /**
-     * GET /appointments/{appointmentId}
-     * Busca um agendamento específico por ID
-     *
-     * @param appointmentId ID do agendamento (UUID)
-     * @return Agendamento encontrado (200 OK)
-     * @throws RuntimeException se o agendamento não for encontrado (retorna 500)
-     */
-    @GetMapping("/{appointmentId}")
-    public ResponseEntity<AppointmentsEntity> getAppointmentById(@PathVariable String appointmentId) {
-        AppointmentsEntity appointment = appointmentsService.getAppointmentById(java.util.UUID.fromString(appointmentId));
-        return ResponseEntity.ok(appointment);
     }
 
     /**
@@ -124,6 +99,39 @@ public class AppointmentsController {
             @RequestParam String userPhone) {
         List<AppointmentsEntity> appointments = appointmentsService.getPastAppointmentsByPhone(userPhone);
         return ResponseEntity.ok(appointments);
+    }
+
+    /**
+     * GET /appointments
+     * Lista agendamentos. Se passar ?date= filtra por data, senão retorna todos
+     *
+     * @param date Data opcional no formato YYYY-MM-DD
+     * @return Lista de agendamentos
+     */
+    @GetMapping
+    public ResponseEntity<List<AppointmentsEntity>> getAppointments(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        if (date != null) {
+            List<AppointmentsEntity> appointments = appointmentsService.getAppointmentsByDate(date);
+            return ResponseEntity.ok(appointments);
+        } else {
+            List<AppointmentsEntity> appointments = appointmentsService.getAllAppointments();
+            return ResponseEntity.ok(appointments);
+        }
+    }
+
+    /**
+     * GET /appointments/id/{appointmentId}
+     * Busca um agendamento específico por ID
+     *
+     * @param appointmentId ID do agendamento (UUID)
+     * @return Agendamento encontrado (200 OK)
+     * @throws RuntimeException se o agendamento não for encontrado (retorna 500)
+     */
+    @GetMapping("/id/{appointmentId}")
+    public ResponseEntity<AppointmentsEntity> getAppointmentById(@PathVariable String appointmentId) {
+        AppointmentsEntity appointment = appointmentsService.getAppointmentById(java.util.UUID.fromString(appointmentId));
+        return ResponseEntity.ok(appointment);
     }
 
     /**

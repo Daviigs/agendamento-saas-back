@@ -27,6 +27,7 @@ public class WhatsappSerivce {
             : appointment.getUserPhone();
 
         Whats dto = new Whats();
+        dto.setClienteId(appointment.getTenantId()); // ✅ ENVIA O TENANT/CLIENT ID
         dto.setTelefone(telefoneParaWhatsapp);
         dto.setNome(appointment.getUserName());
         dto.setData(appointment.getDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
