@@ -2,6 +2,8 @@ package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.domain.dto.Whats;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -9,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 public class WhatsappSerivce {
+    private static final Logger logger = LoggerFactory.getLogger(WhatsappSerivce.class);
     private final RestTemplate restTemplate = new RestTemplate();
 
     public void enviarAgendamento(Whats dto) {
