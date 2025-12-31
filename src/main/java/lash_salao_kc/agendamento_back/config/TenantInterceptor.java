@@ -2,6 +2,8 @@ package lash_salao_kc.agendamento_back.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -11,7 +13,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Component
 public class TenantInterceptor implements HandlerInterceptor {
-
+    private static final Logger logger = LoggerFactory.getLogger(TenantInterceptor.class);
     private static final String TENANT_HEADER = "X-Client-Id";
 
     @Override
@@ -21,6 +23,9 @@ public class TenantInterceptor implements HandlerInterceptor {
         // Se não veio header, usa "default" (retrocompatibilidade com front-end atual)
         if (tenantId == null || tenantId.trim().isEmpty()) {
             tenantId = "default";
+            logger.warn("⚠️  Header X-Client-Id não encontrado, usando tenant 'default'");
+        } else {
+            logger.info("🔑 Tenant detectado: {} | Endpoint: {} {}", tenantId, request.getMethod(), request.getRequestURI());
         }
 
         TenantContext.setTenantId(tenantId);

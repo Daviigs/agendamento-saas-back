@@ -46,10 +46,9 @@ public class AppointmentsService {
             return new ArrayList<>(); // Retorna lista vazia se o dia estiver bloqueado
         }
 
-        // Buscar todos os agendamentos da data
-        List<AppointmentsEntity> appointments = appoitmentsRepository.findAll().stream()
-                .filter(appointment -> appointment.getDate().equals(date))
-                .toList();
+        // Buscar todos os agendamentos da data (filtrado por tenant)
+        String tenantId = TenantContext.getTenantId();
+        List<AppointmentsEntity> appointments = appoitmentsRepository.findByTenantIdAndDate(tenantId, date);
 
         // Gerar todos os horários possíveis (09:00 às 18:00, de 30 em 30 minutos)
         List<LocalTime> allPossibleSlots = generateAllTimeSlots();
@@ -110,9 +109,8 @@ public class AppointmentsService {
      * @return Lista de agendamentos da data
      */
     public List<AppointmentsEntity> getAppointmentsByDate(LocalDate date) {
-        return appoitmentsRepository.findAll().stream()
-                .filter(appointment -> appointment.getDate().equals(date))
-                .toList();
+        String tenantId = TenantContext.getTenantId();
+        return appoitmentsRepository.findByTenantIdAndDate(tenantId, date);
     }
 
     /**
@@ -121,7 +119,21 @@ public class AppointmentsService {
      * @return Lista de todos os agendamentos
      */
     public List<AppointmentsEntity> getAllAppointments() {
-        return appoitmentsRepository.findAll();
+        String tenantId = TenantContext.getTenantId();
+        System.out.println("🔍 [getAllAppointments] Buscando agendamentos para tenant: " + tenantId);
+
+        List<AppointmentsEntity> appointments = appoitmentsRepository.findByTenantId(tenantId);
+
+        System.out.println("📊 [getAllAppointments] Encontrados " + appointments.size() + " agendamentos");
+        appointments.forEach(apt -> {
+            System.out.println("  ✅ ID: " + apt.getId() + " | Tenant: " + apt.getTenantId() + " | User: " + apt.getUserName());
+            System.out.println("     Services: " + apt.getServices().size() + " serviço(s)");
+            apt.getServices().forEach(svc -> {
+                System.out.println("       - " + svc.getName() + " (ID: " + svc.getId() + ")");
+            });
+        });
+
+        return appointments;
     }
 
     /**
@@ -129,11 +141,20 @@ public class AppointmentsService {
      *
      * @param appointmentId ID do agendamento
      * @return Agendamento encontrado
-     * @throws RuntimeException se o agendamento não for encontrado
+     * @throws RuntimeException se o agendamento não for encontrado ou não pertencer ao tenant
      */
     public AppointmentsEntity getAppointmentById(UUID appointmentId) {
-        return appoitmentsRepository.findById(appointmentId)
+        String tenantId = TenantContext.getTenantId();
+
+        AppointmentsEntity appointment = appoitmentsRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Agendamento não encontrado com ID: " + appointmentId));
+
+        // Validar se o agendamento pertence ao tenant atual
+        if (!appointment.getTenantId().equals(tenantId)) {
+            throw new RuntimeException("Você não tem permissão para acessar este agendamento");
+        }
+
+        return appointment;
     }
 
     /**
@@ -144,10 +165,10 @@ public class AppointmentsService {
      * @return Lista de agendamentos futuros ordenados por data e hora
      */
     public List<AppointmentsEntity> getFutureAppointmentsByPhone(String userPhone) {
+        String tenantId = TenantContext.getTenantId();
         LocalDate today = LocalDate.now();
 
-        return appoitmentsRepository.findAll().stream()
-                .filter(appointment -> appointment.getUserPhone().equals(userPhone))
+        return appoitmentsRepository.findByTenantIdAndUserPhone(tenantId, userPhone).stream()
                 .filter(appointment -> appointment.getDate().isAfter(today) || appointment.getDate().equals(today))
                 .sorted((a1, a2) -> {
                     // Ordena por data e depois por horário
@@ -168,10 +189,10 @@ public class AppointmentsService {
      * @return Lista de agendamentos passados ordenados por data e hora (mais recente primeiro)
      */
     public List<AppointmentsEntity> getPastAppointmentsByPhone(String userPhone) {
+        String tenantId = TenantContext.getTenantId();
         LocalDate today = LocalDate.now();
 
-        return appoitmentsRepository.findAll().stream()
-                .filter(appointment -> appointment.getUserPhone().equals(userPhone))
+        return appoitmentsRepository.findByTenantIdAndUserPhone(tenantId, userPhone).stream()
                 .filter(appointment -> appointment.getDate().isBefore(today))
                 .sorted((a1, a2) -> {
                     // Ordena por data decrescente (mais recente primeiro) e depois por horário
@@ -308,15 +329,22 @@ public class AppointmentsService {
      * Remove o agendamento do banco de dados, liberando o horário para novos agendamentos
      *
      * @param appointmentId ID do agendamento a ser cancelado
-     * @throws RuntimeException se o agendamento não for encontrado
+     * @throws RuntimeException se o agendamento não for encontrado ou não pertencer ao tenant
      */
     @Transactional
     public void cancelAppointment(UUID appointmentId) {
+        String tenantId = TenantContext.getTenantId();
+
         // 1. Buscar o agendamento no banco
         AppointmentsEntity appointment = appoitmentsRepository.findById(appointmentId)
                 .orElseThrow(() -> new RuntimeException("Agendamento não encontrado com ID: " + appointmentId));
 
-        // 2. Deletar o agendamento (libera o horário)
+        // 2. Validar se o agendamento pertence ao tenant atual
+        if (!appointment.getTenantId().equals(tenantId)) {
+            throw new RuntimeException("Você não tem permissão para cancelar este agendamento");
+        }
+
+        // 3. Deletar o agendamento (libera o horário)
         appoitmentsRepository.delete(appointment);
     }
 
