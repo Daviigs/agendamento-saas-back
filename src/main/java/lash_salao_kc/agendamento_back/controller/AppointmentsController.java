@@ -50,7 +50,8 @@ public class AppointmentsController {
                 request.getDate(),
                 request.getStartTime(),
                 request.getUserName(),
-                request.getUserPhone()
+                request.getUserPhone(),
+                request.getClienteId()
         );
         return ResponseEntity.status(HttpStatus.CREATED).body(appointment);
     }
