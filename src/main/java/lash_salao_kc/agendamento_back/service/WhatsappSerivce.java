@@ -2,9 +2,6 @@ package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.domain.dto.Whats;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -12,11 +9,7 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 public class WhatsappSerivce {
-    private static final Logger logger = LoggerFactory.getLogger(WhatsappSerivce.class);
     private final RestTemplate restTemplate = new RestTemplate();
-
-    @Value("${whatsapp.client.id:default}")
-    private String whatsappClientId;
 
     public void enviarAgendamento(Whats dto) {
 
@@ -34,7 +27,6 @@ public class WhatsappSerivce {
             : appointment.getUserPhone();
 
         Whats dto = new Whats();
-        dto.setClienteId(whatsappClientId);
         dto.setTelefone(telefoneParaWhatsapp);
         dto.setNome(appointment.getUserName());
         dto.setData(appointment.getDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));

@@ -6,7 +6,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class Whats {
-    private String clienteId;
     private String telefone;
     private String nome;
     private String data;

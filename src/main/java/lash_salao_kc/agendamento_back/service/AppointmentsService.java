@@ -196,12 +196,11 @@ public class AppointmentsService {
      * @param startTime Horário de início selecionado
      * @param userName Nome do usuário que está agendando
      * @param userPhone Número de telefone do usuário
-     * @param clienteId ID do cliente (tenant) enviado pelo frontend (kc ou mjs)
      * @return Agendamento criado
      * @throws RuntimeException se o serviço não existir, horário estiver ocupado ou fora do expediente
      */
     @Transactional
-    public AppointmentsEntity createAppointment(UUID serviceId, LocalDate date, LocalTime startTime, String userName, String userPhone, String clienteId) {
+    public AppointmentsEntity createAppointment(UUID serviceId, LocalDate date, LocalTime startTime, String userName, String userPhone) {
         // 1. Validar se a data está bloqueada (feriado ou dia de folga)
         if (blockedDayService.isDateBlocked(date)) {
             throw new RuntimeException("Não é possível agendar nesta data. O salão estará fechado.");
@@ -234,7 +233,6 @@ public class AppointmentsService {
         String telefoneParaWhatsapp = userPhone.startsWith("+") ? userPhone.substring(1) : userPhone;
 
         Whats whatsDto = new Whats();
-        whatsDto.setClienteId(clienteId); // Usa o clienteId vindo do frontend (kc ou mjs)
         whatsDto.setTelefone(telefoneParaWhatsapp); // Envia apenas com "55" (sem "+")
         whatsDto.setNome(userName);
         whatsDto.setData(date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));

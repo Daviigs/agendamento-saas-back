@@ -22,6 +22,10 @@ public class BlockedDayEntity {
     @Column(name = "blocked_day_id")
     private UUID id;
 
+    @NotNull
+    @Column(name = "tenant_id", nullable = false)
+    private String tenantId;
+
     /**
      * Data específica bloqueada (ex: 25/12/2025 - Natal)
      * Null se for um bloqueio recorrente por dia da semana

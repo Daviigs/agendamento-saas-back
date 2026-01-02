@@ -1,5 +1,6 @@
 package lash_salao_kc.agendamento_back.service;
 
+import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.BlockedDayEntity;
 import lash_salao_kc.agendamento_back.repository.BlockedDayRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,14 +23,16 @@ public class BlockedDayService {
      * Considera tanto bloqueios de data específica quanto bloqueios recorrentes por dia da semana
      */
     public boolean isDateBlocked(LocalDate date) {
+        String tenantId = TenantContext.getTenantId();
+
         // Verifica se há bloqueio para a data específica
-        if (blockedDayRepository.findBySpecificDate(date).isPresent()) {
+        if (blockedDayRepository.findByTenantIdAndSpecificDate(tenantId, date).isPresent()) {
             return true;
         }
 
         // Verifica se há bloqueio recorrente para o dia da semana
         DayOfWeek dayOfWeek = date.getDayOfWeek();
-        return blockedDayRepository.findByDayOfWeekAndRecurring(dayOfWeek, true).isPresent();
+        return blockedDayRepository.findByTenantIdAndDayOfWeekAndRecurring(tenantId, dayOfWeek, true).isPresent();
     }
 
     /**
@@ -37,12 +40,15 @@ public class BlockedDayService {
      */
     @Transactional
     public BlockedDayEntity blockSpecificDate(LocalDate date, String reason) {
+        String tenantId = TenantContext.getTenantId();
+
         // Verifica se já existe bloqueio para essa data
-        if (blockedDayRepository.findBySpecificDate(date).isPresent()) {
+        if (blockedDayRepository.findByTenantIdAndSpecificDate(tenantId, date).isPresent()) {
             throw new RuntimeException("Esta data já está bloqueada");
         }
 
         BlockedDayEntity blockedDay = new BlockedDayEntity();
+        blockedDay.setTenantId(tenantId);
         blockedDay.setSpecificDate(date);
         blockedDay.setReason(reason);
         blockedDay.setRecurring(false);
@@ -56,12 +62,15 @@ public class BlockedDayService {
      */
     @Transactional
     public BlockedDayEntity blockRecurringDayOfWeek(DayOfWeek dayOfWeek, String reason) {
+        String tenantId = TenantContext.getTenantId();
+
         // Verifica se já existe bloqueio para esse dia da semana
-        if (blockedDayRepository.findByDayOfWeekAndRecurring(dayOfWeek, true).isPresent()) {
+        if (blockedDayRepository.findByTenantIdAndDayOfWeekAndRecurring(tenantId, dayOfWeek, true).isPresent()) {
             throw new RuntimeException("Este dia da semana já está bloqueado");
         }
 
         BlockedDayEntity blockedDay = new BlockedDayEntity();
+        blockedDay.setTenantId(tenantId);
         blockedDay.setDayOfWeek(dayOfWeek);
         blockedDay.setReason(reason);
         blockedDay.setRecurring(true);
@@ -85,21 +94,24 @@ public class BlockedDayService {
      * Lista todos os bloqueios
      */
     public List<BlockedDayEntity> getAllBlockedDays() {
-        return blockedDayRepository.findAll();
+        String tenantId = TenantContext.getTenantId();
+        return blockedDayRepository.findByTenantId(tenantId);
     }
 
     /**
      * Lista apenas bloqueios de datas específicas
      */
     public List<BlockedDayEntity> getSpecificBlockedDates() {
-        return blockedDayRepository.findByRecurring(false);
+        String tenantId = TenantContext.getTenantId();
+        return blockedDayRepository.findByTenantIdAndRecurring(tenantId, false);
     }
 
     /**
      * Lista apenas bloqueios recorrentes (dias da semana)
      */
     public List<BlockedDayEntity> getRecurringBlockedDays() {
-        return blockedDayRepository.findByRecurring(true);
+        String tenantId = TenantContext.getTenantId();
+        return blockedDayRepository.findByTenantIdAndRecurring(tenantId, true);
     }
 
     /**
