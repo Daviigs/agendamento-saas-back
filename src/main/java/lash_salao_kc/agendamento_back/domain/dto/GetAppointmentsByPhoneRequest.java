@@ -5,20 +5,15 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BlockSpecificDateRequest {
+public class GetAppointmentsByPhoneRequest {
 
     @NotNull(message = "Tenant ID é obrigatório")
     private String tenantId;
 
-    @NotNull(message = "Data é obrigatória")
-    private LocalDate date;
-
-    @NotNull(message = "Motivo é obrigatório")
-    private String reason;
+    @NotNull(message = "Telefone do usuário é obrigatório")
+    private String userPhone;
 }
 

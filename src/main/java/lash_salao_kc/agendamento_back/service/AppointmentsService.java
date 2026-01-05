@@ -184,34 +184,43 @@ public class AppointmentsService {
     }
 
     /**
-     * Cria um novo agendamento
-     * - Busca o serviço selecionado no banco
-     * - Calcula o endTime baseado na duração do serviço
+     * Cria um novo agendamento com múltiplos serviços
+     * - Valida se a data não está bloqueada (feriado ou dia de folga)
+     * - Busca todos os serviços selecionados
+     * - Calcula o endTime baseado na soma das durações dos serviços
      * - Valida se o horário está disponível (não conflita com outros agendamentos)
      * - Valida se está dentro do horário de funcionamento
      * - Salva o agendamento, tornando aquele período indisponível
      *
-     * @param serviceId ID do serviço selecionado
+     * @param serviceIds Lista de IDs dos serviços selecionados
      * @param date Data do agendamento
      * @param startTime Horário de início selecionado
      * @param userName Nome do usuário que está agendando
      * @param userPhone Número de telefone do usuário
+     * @param clienteId ID do cliente (KC ou MJS)
      * @return Agendamento criado
      * @throws RuntimeException se o serviço não existir, horário estiver ocupado ou fora do expediente
      */
     @Transactional
-    public AppointmentsEntity createAppointment(UUID serviceId, LocalDate date, LocalTime startTime, String userName, String userPhone) {
+    public AppointmentsEntity createAppointment(List<UUID> serviceIds, LocalDate date, LocalTime startTime, String userName, String userPhone, String clienteId) {
         // 1. Validar se a data está bloqueada (feriado ou dia de folga)
         if (blockedDayService.isDateBlocked(date)) {
             throw new RuntimeException("Não é possível agendar nesta data. O salão estará fechado.");
         }
 
-        // 2. Buscar o serviço no banco de dados
-        ServicesEntity service = servicesRepository.findById(serviceId)
-                .orElseThrow(() -> new RuntimeException("Serviço não encontrado com ID: " + serviceId));
+        // 2. Buscar todos os serviços no banco de dados
+        List<ServicesEntity> services = new ArrayList<>();
+        int totalDuration = 0;
 
-        // 3. Calcular o horário de término baseado na duração do serviço
-        LocalTime endTime = startTime.plusMinutes(service.getDuration());
+        for (UUID serviceId : serviceIds) {
+            ServicesEntity service = servicesRepository.findById(serviceId)
+                    .orElseThrow(() -> new RuntimeException("Serviço não encontrado com ID: " + serviceId));
+            services.add(service);
+            totalDuration += service.getDuration();
+        }
+
+        // 3. Calcular o horário de término baseado na soma das durações dos serviços
+        LocalTime endTime = startTime.plusMinutes(totalDuration);
 
         // 4. Validar se está dentro do horário de funcionamento
         validateBusinessHours(startTime, endTime);
@@ -221,10 +230,11 @@ public class AppointmentsService {
 
         // 6. Criar o agendamento
         AppointmentsEntity appointment = new AppointmentsEntity();
+        appointment.setTenantId(tenantId);
         appointment.setDate(date);
         appointment.setStartTime(startTime);
         appointment.setEndTime(endTime);
-        appointment.setService(service);
+        appointment.setServices(services);
         appointment.setUserName(userName);
         appointment.setUserPhone(userPhone);
 
@@ -232,12 +242,19 @@ public class AppointmentsService {
         // Remove o "+" caso venha com "+55", mantém apenas "55"
         String telefoneParaWhatsapp = userPhone.startsWith("+") ? userPhone.substring(1) : userPhone;
 
+        // Concatena os nomes dos serviços
+        String servicosNomes = services.stream()
+                .map(ServicesEntity::getName)
+                .reduce((s1, s2) -> s1 + ", " + s2)
+                .orElse("");
+
         Whats whatsDto = new Whats();
-        whatsDto.setTelefone(telefoneParaWhatsapp); // Envia apenas com "55" (sem "+")
+        whatsDto.setTelefone(telefoneParaWhatsapp);
         whatsDto.setNome(userName);
         whatsDto.setData(date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         whatsDto.setHora(startTime.format(DateTimeFormatter.ofPattern("HH:mm")));
-        whatsDto.setServico(service.getName()); // Nome do serviço
+        whatsDto.setServico(servicosNomes);
+        whatsDto.setClienteId(tenantId);
 
         whatsAppService.enviarAgendamento(whatsDto);
 

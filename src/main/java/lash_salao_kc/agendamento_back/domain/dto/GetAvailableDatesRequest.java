@@ -10,15 +10,15 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BlockSpecificDateRequest {
+public class GetAvailableDatesRequest {
 
     @NotNull(message = "Tenant ID é obrigatório")
     private String tenantId;
 
-    @NotNull(message = "Data é obrigatória")
-    private LocalDate date;
+    @NotNull(message = "Data inicial é obrigatória")
+    private LocalDate startDate;
 
-    @NotNull(message = "Motivo é obrigatório")
-    private String reason;
+    @NotNull(message = "Data final é obrigatória")
+    private LocalDate endDate;
 }
 

@@ -88,32 +88,44 @@ public class AppointmentsController {
     }
 
     /**
-     * GET /appointments/past?userPhone={phone}
+     * POST /appointments/past
      * Retorna todos os agendamentos passados de um número de telefone
      * Considera como "passados" os agendamentos cuja data é < data atual
      *
-     * @param userPhone Número de telefone do usuário
+     * Request body:
+     * {
+     *   "tenantId": "cliente1",
+     *   "userPhone": "5511999999999"
+     * }
+     *
+     * @param request Dados da requisição (tenantId e userPhone)
      * @return Lista de agendamentos passados ordenados por data decrescente (mais recente primeiro)
      */
-    @GetMapping("/past")
-    public ResponseEntity<List<AppointmentsEntity>> getPastAppointments(
-            @RequestParam String userPhone) {
-        List<AppointmentsEntity> appointments = appointmentsService.getPastAppointmentsByPhone(userPhone);
+    @PostMapping("/past")
+    public ResponseEntity<List<AppointmentsEntity>> getPastAppointments(@Valid @RequestBody GetAppointmentsByPhoneRequest request) {
+        TenantContext.setTenantId(request.getTenantId());
+        List<AppointmentsEntity> appointments = appointmentsService.getPastAppointmentsByPhone(request.getUserPhone());
         return ResponseEntity.ok(appointments);
     }
 
     /**
-     * GET /appointments
-     * Lista agendamentos. Se passar ?date= filtra por data, senão retorna todos
+     * POST /appointments/list
+     * Lista agendamentos. Se passar date filtra por data, senão retorna todos
      *
-     * @param date Data opcional no formato YYYY-MM-DD
+     * Request body:
+     * {
+     *   "tenantId": "cliente1",
+     *   "date": "2024-12-15" (opcional)
+     * }
+     *
+     * @param request Dados da requisição (tenantId e data opcional)
      * @return Lista de agendamentos
      */
-    @GetMapping
-    public ResponseEntity<List<AppointmentsEntity>> getAppointments(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        if (date != null) {
-            List<AppointmentsEntity> appointments = appointmentsService.getAppointmentsByDate(date);
+    @PostMapping("/list")
+    public ResponseEntity<List<AppointmentsEntity>> getAppointments(@Valid @RequestBody GetAppointmentsByDateRequest request) {
+        TenantContext.setTenantId(request.getTenantId());
+        if (request.getDate() != null) {
+            List<AppointmentsEntity> appointments = appointmentsService.getAppointmentsByDate(request.getDate());
             return ResponseEntity.ok(appointments);
         } else {
             List<AppointmentsEntity> appointments = appointmentsService.getAllAppointments();
@@ -122,31 +134,45 @@ public class AppointmentsController {
     }
 
     /**
-     * GET /appointments/id/{appointmentId}
+     * POST /appointments/by-id
      * Busca um agendamento específico por ID
      *
-     * @param appointmentId ID do agendamento (UUID)
+     * Request body:
+     * {
+     *   "tenantId": "cliente1",
+     *   "appointmentId": "uuid-do-agendamento"
+     * }
+     *
+     * @param request Dados da requisição com appointmentId no formato String
      * @return Agendamento encontrado (200 OK)
      * @throws RuntimeException se o agendamento não for encontrado (retorna 500)
      */
-    @GetMapping("/id/{appointmentId}")
-    public ResponseEntity<AppointmentsEntity> getAppointmentById(@PathVariable String appointmentId) {
-        AppointmentsEntity appointment = appointmentsService.getAppointmentById(java.util.UUID.fromString(appointmentId));
+    @PostMapping("/by-id")
+    public ResponseEntity<AppointmentsEntity> getAppointmentById(@Valid @RequestBody TenantIdWithId request) {
+        TenantContext.setTenantId(request.getTenantId());
+        AppointmentsEntity appointment = appointmentsService.getAppointmentById(java.util.UUID.fromString(request.getId()));
         return ResponseEntity.ok(appointment);
     }
 
     /**
-     * DELETE /appointments/{appointmentId}
+     * POST /appointments/cancel
      * Cancela um agendamento existente
      * Remove o agendamento do banco de dados, liberando o horário para novos agendamentos
      *
-     * @param appointmentId ID do agendamento a ser cancelado (UUID)
+     * Request body:
+     * {
+     *   "tenantId": "cliente1",
+     *   "appointmentId": "uuid-do-agendamento"
+     * }
+     *
+     * @param request Dados da requisição com appointmentId
      * @return 204 No Content se cancelado com sucesso
      * @throws RuntimeException se o agendamento não for encontrado (retorna 500)
      */
-    @DeleteMapping("/{appointmentId}")
-    public ResponseEntity<Void> cancelAppointment(@PathVariable String appointmentId) {
-        appointmentsService.cancelAppointment(java.util.UUID.fromString(appointmentId));
+    @PostMapping("/cancel")
+    public ResponseEntity<Void> cancelAppointment(@Valid @RequestBody TenantIdWithId request) {
+        TenantContext.setTenantId(request.getTenantId());
+        appointmentsService.cancelAppointment(java.util.UUID.fromString(request.getId()));
         return ResponseEntity.noContent().build();
     }
 }

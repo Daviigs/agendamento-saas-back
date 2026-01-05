@@ -11,4 +11,5 @@ public class Whats {
     private String data;
     private String hora;
     private String servico;
+    private String clienteId;
 }

@@ -12,6 +12,9 @@ import java.time.DayOfWeek;
 @AllArgsConstructor
 public class BlockRecurringDayRequest {
 
+    @NotNull(message = "Tenant ID é obrigatório")
+    private String tenantId;
+
     @NotNull(message = "Dia da semana é obrigatório")
     private DayOfWeek dayOfWeek;
 
