@@ -230,7 +230,7 @@ public class AppointmentsService {
 
         // 6. Criar o agendamento
         AppointmentsEntity appointment = new AppointmentsEntity();
-        appointment.setTenantId(tenantId);
+        appointment.setTenantId(clienteId);
         appointment.setDate(date);
         appointment.setStartTime(startTime);
         appointment.setEndTime(endTime);
@@ -254,7 +254,7 @@ public class AppointmentsService {
         whatsDto.setData(date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         whatsDto.setHora(startTime.format(DateTimeFormatter.ofPattern("HH:mm")));
         whatsDto.setServico(servicosNomes);
-        whatsDto.setClienteId(tenantId);
+        whatsDto.setClienteId(clienteId);
 
         whatsAppService.enviarAgendamento(whatsDto);
 
