@@ -27,7 +27,7 @@ jobs:
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "target/*.jar"
-          target: "/opt/salao/back  /app.jar"
+          target: "/opt/salao-back/app.jar"
 
       - name: Restart backend
         uses: appleboy/ssh-action@v1
