@@ -23,16 +23,16 @@ jobs:
       - name: Build JAR
         run: mvn clean package -DskipTests
 
-      # 4️⃣ Remover o JAR antigo do VPS (se existir)
-      - name: Remove old JAR
+      # 4️⃣ Remover a pasta ou arquivo antigo app.jar do VPS
+      - name: Remove old app.jar
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: rm -f /opt/salao-back/app.jar
+          script: rm -rf /opt/salao-back/app.jar
 
-      # 5️⃣ Upload do JAR correto como app.jar
+      # 5️⃣ Upload do JAR correto como arquivo app.jar
       - name: Upload JAR
         uses: appleboy/scp-action@v0.1.7
         with:
