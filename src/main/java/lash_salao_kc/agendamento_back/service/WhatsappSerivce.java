@@ -18,6 +18,7 @@ public class WhatsappSerivce {
         restTemplate.postForEntity(url, dto, String.class);
     }
 
+
     public void enviarLembrete(AppointmentsEntity appointment) {
         String url = "http://localhost:3001/whatsapp/lembrete";
 
