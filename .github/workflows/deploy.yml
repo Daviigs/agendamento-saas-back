@@ -23,17 +23,17 @@ jobs:
       - name: Build JAR
         run: mvn clean package -DskipTests
 
-      # 4️⃣ Upload do JAR para o VPS
+      # 4️⃣ Upload do JAR para o VPS como app.jar
       - name: Upload JAR
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "target/*.jar"
-          target: "/opt/salao-back/"
+          source: "target/agendamento-back-0.0.1-SNAPSHOT.jar"
+          target: "/opt/salao-back/app.jar"
 
-      # 5️⃣ Renomear JAR e reiniciar o backend
+      # 5️⃣ Reiniciar o backend no VPS
       - name: Activate new version
         uses: appleboy/ssh-action@v1
         with:
@@ -44,9 +44,5 @@ jobs:
             set -e
             # Para o backend se estiver rodando
             systemctl stop backend || true
-            # Remove qualquer JAR antigo
-            rm -f /opt/salao-back/app.jar
-            # Move o JAR novo para app.jar
-            mv /opt/salao-back/*.jar /opt/salao-back/app.jar
             # Inicia o backend
             systemctl start backend
