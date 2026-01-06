@@ -10,8 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CreateServiceRequest {
 
-    @NotNull(message = "Tenant ID é obrigatório")
-    private String tenantId;
 
     @NotNull(message = "Nome do serviço é obrigatório")
     private String name;

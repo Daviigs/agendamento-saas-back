@@ -9,17 +9,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Puxar o código
       - uses: actions/checkout@v4
 
+      # 2️⃣ Configurar Java
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
+      # 3️⃣ Build do JAR
       - name: Build JAR
         run: mvn clean package -DskipTests
 
+      # 4️⃣ Upload do JAR para o VPS
       - name: Upload JAR
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -29,14 +33,20 @@ jobs:
           source: "target/*.jar"
           target: "/opt/salao-back/"
 
-      - name: Rename JAR and Restart backend
+      # 5️⃣ Renomear JAR e reiniciar o backend
+      - name: Activate new version
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /opt/salao-back
-            rm -f app.jar
-            mv *.jar app.jar
-            systemctl restart backend
+            set -e
+            # Para o backend se estiver rodando
+            systemctl stop backend || true
+            # Remove qualquer JAR antigo
+            rm -f /opt/salao-back/app.jar
+            # Move o JAR novo para app.jar
+            mv /opt/salao-back/*.jar /opt/salao-back/app.jar
+            # Inicia o backend
+            systemctl start backend

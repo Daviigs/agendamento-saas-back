@@ -2,7 +2,8 @@ package lash_salao_kc.agendamento_back.controller;
 
 import jakarta.validation.Valid;
 import lash_salao_kc.agendamento_back.config.TenantContext;
-import lash_salao_kc.agendamento_back.domain.dto.*;
+import lash_salao_kc.agendamento_back.domain.dto.CreateServiceRequest;
+import lash_salao_kc.agendamento_back.domain.dto.UpdateServiceRequest;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
 import lash_salao_kc.agendamento_back.service.ServicesService;
 import lombok.RequiredArgsConstructor;
@@ -20,22 +21,16 @@ public class ServicesController {
     private final ServicesService servicesService;
 
     /**
-     * POST /services/create
+     * POST /services
      * Cria um novo serviço
-     *
-     * Request body:
-     * {
-     *   "tenantId": "cliente1",
-     *   "name": "Extensão de Cílios",
-     *   "duration": 90,
-     *   "price": 150.00
-     * }
      */
-    @PostMapping("/create")
-    public ResponseEntity<ServicesEntity> createService(@Valid @RequestBody CreateServiceRequest request) {
-        TenantContext.setTenantId(request.getTenantId());
+    @PostMapping
+    public ResponseEntity<ServicesEntity> createService(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @Valid @RequestBody CreateServiceRequest request) {
+        TenantContext.setTenantId(tenantId);
         ServicesEntity entity = new ServicesEntity();
-        entity.setTenantId(request.getTenantId());
+        entity.setTenantId(tenantId);
         entity.setName(request.getName());
         entity.setDuration(request.getDuration());
         entity.setPrice(request.getPrice());
@@ -44,76 +39,58 @@ public class ServicesController {
     }
 
     /**
-     * POST /services/list
+     * GET /services
      * Lista todos os serviços
-     *
-     * Request body:
-     * {
-     *   "tenantId": "cliente1"
-     * }
      */
-    @PostMapping("/list")
-    public ResponseEntity<List<ServicesEntity>> getAllServices(@Valid @RequestBody TenantRequest request) {
-        TenantContext.setTenantId(request.getTenantId());
+    @GetMapping
+    public ResponseEntity<List<ServicesEntity>> getAllServices(
+            @RequestHeader("X-Tenant-Id") String tenantId) {
+        TenantContext.setTenantId(tenantId);
         List<ServicesEntity> services = servicesService.findAll();
         return ResponseEntity.ok(services);
     }
 
     /**
-     * POST /services/by-id
+     * GET /services/{id}
      * Busca um serviço por ID
-     *
-     * Request body:
-     * {
-     *   "tenantId": "cliente1",
-     *   "id": "uuid-do-servico"
-     * }
      */
-    @PostMapping("/by-id")
-    public ResponseEntity<ServicesEntity> getServiceById(@Valid @RequestBody TenantIdWithId request) {
-        TenantContext.setTenantId(request.getTenantId());
-        ServicesEntity service = servicesService.findById(UUID.fromString(request.getId()));
+    @GetMapping("/{id}")
+    public ResponseEntity<ServicesEntity> getServiceById(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable UUID id) {
+        TenantContext.setTenantId(tenantId);
+        ServicesEntity service = servicesService.findById(id);
         return ResponseEntity.ok(service);
     }
 
     /**
-     * POST /services/update
+     * PUT /services/{id}
      * Atualiza um serviço existente
-     *
-     * Request body:
-     * {
-     *   "tenantId": "cliente1",
-     *   "id": "uuid-do-servico",
-     *   "name": "Design de Sobrancelhas",
-     *   "duration": 60,
-     *   "price": 80.00
-     * }
      */
-    @PostMapping("/update")
-    public ResponseEntity<ServicesEntity> updateService(@Valid @RequestBody UpdateServiceWithIdRequest request) {
-        TenantContext.setTenantId(request.getTenantId());
+    @PutMapping("/{id}")
+    public ResponseEntity<ServicesEntity> updateService(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateServiceRequest request) {
+        TenantContext.setTenantId(tenantId);
         ServicesEntity updatedService = new ServicesEntity();
         updatedService.setName(request.getName());
         updatedService.setDuration(request.getDuration());
         updatedService.setPrice(request.getPrice());
-        ServicesEntity updated = servicesService.updateService(UUID.fromString(request.getId()), updatedService);
+        ServicesEntity updated = servicesService.updateService(id, updatedService);
         return ResponseEntity.ok(updated);
     }
 
     /**
-     * POST /services/delete
+     * DELETE /services/{id}
      * Deleta um serviço
-     *
-     * Request body:
-     * {
-     *   "tenantId": "cliente1",
-     *   "id": "uuid-do-servico"
-     * }
      */
-    @PostMapping("/delete")
-    public ResponseEntity<Void> deleteService(@Valid @RequestBody TenantIdWithId request) {
-        TenantContext.setTenantId(request.getTenantId());
-        servicesService.deleteService(UUID.fromString(request.getId()));
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteService(
+            @RequestHeader("X-Tenant-Id") String tenantId,
+            @PathVariable UUID id) {
+        TenantContext.setTenantId(tenantId);
+        servicesService.deleteService(id);
         return ResponseEntity.noContent().build();
     }
 }

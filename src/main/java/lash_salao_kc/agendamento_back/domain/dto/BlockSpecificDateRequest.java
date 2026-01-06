@@ -12,8 +12,6 @@ import java.time.LocalDate;
 @AllArgsConstructor
 public class BlockSpecificDateRequest {
 
-    @NotNull(message = "Tenant ID é obrigatório")
-    private String tenantId;
 
     @NotNull(message = "Data é obrigatória")
     private LocalDate date;

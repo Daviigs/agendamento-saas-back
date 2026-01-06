@@ -35,8 +35,5 @@ public class CreateAppointmentRequest {
 
     @NotNull(message = "Número do usuário é obrigatório")
     private String userPhone;
-
-    @NotNull(message = "Tenant ID é obrigatório")
-    private String tenantId;
 }
 
