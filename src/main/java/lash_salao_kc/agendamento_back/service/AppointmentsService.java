@@ -6,6 +6,7 @@ import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
 import lash_salao_kc.agendamento_back.repository.AppoitmentsRepository;
 import lash_salao_kc.agendamento_back.repository.ServicesRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AppointmentsService {
@@ -26,15 +28,18 @@ public class AppointmentsService {
     private final BlockedDayService blockedDayService;
 
     // Horários de funcionamento do salão
-    private static final LocalTime BUSINESS_START = LocalTime.of(9, 0);  // 09:00
-    private static final LocalTime BUSINESS_END = LocalTime.of(18, 0);   // 18:00
-    private static final int SLOT_INTERVAL_MINUTES = 30;                 // Intervalo de 30 minutos
+    private static final LocalTime BUSINESS_START = LocalTime.of(9, 0);     // 09:00
+    private static final LocalTime BUSINESS_END = LocalTime.of(18, 0);      // 18:00 (horário máximo de término)
+    private static final LocalTime LAST_APPOINTMENT_START = LocalTime.of(16, 0); // 16:00 (último horário para iniciar)
+    private static final int SLOT_INTERVAL_MINUTES = 30;                    // Intervalo de 30 minutos
 
     /**
      * Retorna todos os horários disponíveis para uma data específica
-     * Horários disponíveis são de 09:00 às 18:00, pulando de 30 em 30 minutos
+     * Horários disponíveis são de 09:00 às 16:00, pulando de 30 em 30 minutos
      * Remove os horários que já possuem agendamentos
      * Retorna vazio se a data estiver bloqueada (feriado ou dia de folga)
+     *
+     * Nota: Agendamentos podem iniciar até 16:00 e terminar até 18:00
      *
      * @param date Data para verificar disponibilidade
      * @return Lista de horários disponíveis (LocalTime) ou lista vazia se o dia estiver bloqueado
@@ -66,14 +71,16 @@ public class AppointmentsService {
     }
 
     /**
-     * Gera todos os horários possíveis de 09:00 às 18:00, pulando de 30 em 30 minutos
-     * Exemplo: 09:00, 09:30, 10:00, 10:30, ..., 17:30, 18:00
+     * Gera todos os horários possíveis de 09:00 às 16:00, pulando de 30 em 30 minutos
+     * Exemplo: 09:00, 09:30, 10:00, 10:30, ..., 15:30, 16:00
+     *
+     * Nota: Serviços podem terminar até 18:00
      */
     private List<LocalTime> generateAllTimeSlots() {
         List<LocalTime> slots = new ArrayList<>();
         LocalTime currentSlot = BUSINESS_START;
 
-        while (currentSlot.isBefore(BUSINESS_END) || currentSlot.equals(BUSINESS_END)) {
+        while (currentSlot.isBefore(LAST_APPOINTMENT_START) || currentSlot.equals(LAST_APPOINTMENT_START)) {
             slots.add(currentSlot);
             currentSlot = currentSlot.plusMinutes(SLOT_INTERVAL_MINUTES);
         }
@@ -254,12 +261,22 @@ public class AppointmentsService {
         whatsDto.setData(date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         whatsDto.setHora(startTime.format(DateTimeFormatter.ofPattern("HH:mm")));
         whatsDto.setServico(servicosNomes);
-        whatsDto.setClienteId(clienteId);
+        whatsDto.setClienteId(clienteId.toLowerCase()); // Converte para minúsculas (kc ou mjs)
 
-        whatsAppService.enviarAgendamento(whatsDto);
+        try {
+            log.info("Enviando mensagem WhatsApp para: {} (clienteId: {})", telefoneParaWhatsapp, clienteId.toLowerCase());
+            whatsAppService.enviarAgendamento(whatsDto);
+            log.info("WhatsApp enviado com sucesso");
+        } catch (Exception e) {
+            log.error("Erro ao enviar WhatsApp (continuando com o agendamento): {}", e.getMessage());
+            // Não falha o agendamento se o WhatsApp falhar
+        }
 
         // 7. Salvar no banco (esse período agora fica indisponível)
-        return appoitmentsRepository.save(appointment);
+        log.info("Salvando agendamento no banco...");
+        AppointmentsEntity saved = appoitmentsRepository.save(appointment);
+        log.info("Agendamento salvo com sucesso! ID: {}", saved.getId());
+        return saved;
     }
 
     /**

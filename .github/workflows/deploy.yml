@@ -1,4 +1,4 @@
-name: Deploy Spring Boot
+name: Deploy Spring API
 
 on:
   push:
@@ -18,11 +18,10 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Give execute permission to mvnw
-        run: chmod +x mvnw
-
       - name: Build JAR
-        run: ./mvnw clean package -DskipTests
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
 
       - name: Copy JAR to VPS
         uses: appleboy/scp-action@v0.1.7
@@ -34,7 +33,7 @@ jobs:
           target: /opt/back-spring
           strip_components: 1
 
-      - name: Restart Spring service
+      - name: Restart Spring Service
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -42,3 +41,4 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             sudo systemctl restart spring-api
+            sudo systemctl status spring-api --no-pager
