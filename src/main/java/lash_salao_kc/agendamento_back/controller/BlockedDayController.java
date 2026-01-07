@@ -31,6 +31,7 @@ public class BlockedDayController {
     public ResponseEntity<BlockedDayEntity> blockSpecificDate(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @Valid @RequestBody BlockSpecificDateRequest request) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         BlockedDayEntity blockedDay = blockedDayService.blockSpecificDate(request.getDate(), request.getReason());
         return ResponseEntity.status(HttpStatus.CREATED).body(blockedDay);
@@ -44,6 +45,7 @@ public class BlockedDayController {
     public ResponseEntity<BlockedDayEntity> blockRecurringDay(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @Valid @RequestBody BlockRecurringDayRequest request) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         BlockedDayEntity blockedDay = blockedDayService.blockRecurringDayOfWeek(request.getDayOfWeek(), request.getReason());
         return ResponseEntity.status(HttpStatus.CREATED).body(blockedDay);
@@ -56,6 +58,7 @@ public class BlockedDayController {
     @GetMapping
     public ResponseEntity<List<BlockedDayEntity>> getAllBlockedDays(
             @RequestHeader("X-Tenant-Id") String tenantId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<BlockedDayEntity> blockedDays = blockedDayService.getAllBlockedDays();
         return ResponseEntity.ok(blockedDays);
@@ -68,6 +71,7 @@ public class BlockedDayController {
     @GetMapping("/specific")
     public ResponseEntity<List<BlockedDayEntity>> getSpecificBlockedDates(
             @RequestHeader("X-Tenant-Id") String tenantId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<BlockedDayEntity> blockedDays = blockedDayService.getSpecificBlockedDates();
         return ResponseEntity.ok(blockedDays);
@@ -80,6 +84,7 @@ public class BlockedDayController {
     @GetMapping("/recurring")
     public ResponseEntity<List<BlockedDayEntity>> getRecurringBlockedDays(
             @RequestHeader("X-Tenant-Id") String tenantId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<BlockedDayEntity> blockedDays = blockedDayService.getRecurringBlockedDays();
         return ResponseEntity.ok(blockedDays);
@@ -94,6 +99,7 @@ public class BlockedDayController {
             @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<LocalDate> availableDates = blockedDayService.getAvailableDates(startDate, endDate);
         return ResponseEntity.ok(availableDates);
@@ -107,6 +113,7 @@ public class BlockedDayController {
     public ResponseEntity<Void> unblockDay(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID blockedDayId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         blockedDayService.unblockDay(blockedDayId);
         return ResponseEntity.noContent().build();

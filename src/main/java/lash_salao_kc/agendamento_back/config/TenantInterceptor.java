@@ -25,6 +25,8 @@ public class TenantInterceptor implements HandlerInterceptor {
             tenantId = "default";
             logger.warn("⚠️  Header X-Client-Id não encontrado, usando tenant 'default'");
         } else {
+            // Normaliza para minúsculas (kc, mjs)
+            tenantId = tenantId.toLowerCase().trim();
             logger.info("🔑 Tenant detectado: {} | Endpoint: {} {}", tenantId, request.getMethod(), request.getRequestURI());
         }
 

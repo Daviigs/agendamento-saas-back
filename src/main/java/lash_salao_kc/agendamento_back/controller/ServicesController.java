@@ -28,6 +28,7 @@ public class ServicesController {
     public ResponseEntity<ServicesEntity> createService(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @Valid @RequestBody CreateServiceRequest request) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         ServicesEntity entity = new ServicesEntity();
         entity.setTenantId(tenantId);
@@ -45,6 +46,7 @@ public class ServicesController {
     @GetMapping
     public ResponseEntity<List<ServicesEntity>> getAllServices(
             @RequestHeader("X-Tenant-Id") String tenantId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<ServicesEntity> services = servicesService.findAll();
         return ResponseEntity.ok(services);
@@ -58,6 +60,7 @@ public class ServicesController {
     public ResponseEntity<ServicesEntity> getServiceById(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID id) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         ServicesEntity service = servicesService.findById(id);
         return ResponseEntity.ok(service);
@@ -72,6 +75,7 @@ public class ServicesController {
             @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceRequest request) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         ServicesEntity updatedService = new ServicesEntity();
         updatedService.setName(request.getName());
@@ -89,6 +93,7 @@ public class ServicesController {
     public ResponseEntity<Void> deleteService(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID id) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         servicesService.deleteService(id);
         return ResponseEntity.noContent().build();

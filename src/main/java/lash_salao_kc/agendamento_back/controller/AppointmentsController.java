@@ -6,6 +6,7 @@ import lash_salao_kc.agendamento_back.domain.dto.CreateAppointmentRequest;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
 import lash_salao_kc.agendamento_back.service.AppointmentsService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @RestController
 @RequestMapping("/appointments")
 @RequiredArgsConstructor
@@ -31,6 +33,14 @@ public class AppointmentsController {
     public ResponseEntity<AppointmentsEntity> createAppointment(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @Valid @RequestBody CreateAppointmentRequest request) {
+        log.info("=== Iniciando criação de agendamento ===");
+        // Normaliza tenantId para minúsculas (kc, mjs)
+        tenantId = tenantId.toLowerCase().trim();
+        log.info("Tenant ID: {}", tenantId);
+        log.info("Request: serviceIds={}, date={}, startTime={}, userName={}, userPhone={}",
+                request.getServiceIds(), request.getDate(), request.getStartTime(),
+                request.getUserName(), request.getUserPhone());
+
         TenantContext.setTenantId(tenantId);
         AppointmentsEntity appointment = appointmentsService.createAppointment(
                 request.getServiceIds(),
@@ -40,6 +50,8 @@ public class AppointmentsController {
                 request.getUserPhone(),
                 tenantId
         );
+
+        log.info("Agendamento criado com sucesso: ID={}", appointment.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(appointment);
     }
 
@@ -51,6 +63,7 @@ public class AppointmentsController {
     public ResponseEntity<List<LocalTime>> getAvailableSlots(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<LocalTime> availableSlots = appointmentsService.getAvailableTimeSlots(date);
         return ResponseEntity.ok(availableSlots);
@@ -64,6 +77,7 @@ public class AppointmentsController {
     public ResponseEntity<List<AppointmentsEntity>> getFutureAppointments(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestParam String userPhone) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<AppointmentsEntity> appointments = appointmentsService.getFutureAppointmentsByPhone(userPhone);
         return ResponseEntity.ok(appointments);
@@ -77,6 +91,7 @@ public class AppointmentsController {
     public ResponseEntity<List<AppointmentsEntity>> getPastAppointments(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestParam String userPhone) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         List<AppointmentsEntity> appointments = appointmentsService.getPastAppointmentsByPhone(userPhone);
         return ResponseEntity.ok(appointments);
@@ -91,6 +106,7 @@ public class AppointmentsController {
     public ResponseEntity<List<AppointmentsEntity>> getAppointments(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         if (date != null) {
             List<AppointmentsEntity> appointments = appointmentsService.getAppointmentsByDate(date);
@@ -109,6 +125,7 @@ public class AppointmentsController {
     public ResponseEntity<AppointmentsEntity> getAppointmentById(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID appointmentId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         AppointmentsEntity appointment = appointmentsService.getAppointmentById(appointmentId);
         return ResponseEntity.ok(appointment);
@@ -122,6 +139,7 @@ public class AppointmentsController {
     public ResponseEntity<Void> cancelAppointment(
             @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID appointmentId) {
+        tenantId = tenantId.toLowerCase().trim();
         TenantContext.setTenantId(tenantId);
         appointmentsService.cancelAppointment(appointmentId);
         return ResponseEntity.noContent().build();
