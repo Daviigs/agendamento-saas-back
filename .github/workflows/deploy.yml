@@ -32,6 +32,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           source: target/*.jar
           target: /opt/back-spring
+          strip_components: 1
 
       - name: Restart Spring Service
         uses: appleboy/ssh-action@v1
