@@ -1,7 +1,6 @@
 package lash_salao_kc.agendamento_back.controller;
 
 import jakarta.validation.Valid;
-import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.dto.BlockRecurringDayRequest;
 import lash_salao_kc.agendamento_back.domain.dto.BlockSpecificDateRequest;
 import lash_salao_kc.agendamento_back.domain.entity.BlockedDayEntity;
@@ -16,105 +15,107 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Controller REST para gerenciamento de dias bloqueados.
+ * Permite bloquear datas específicas ou dias da semana recorrentes.
+ *
+ * NOTA: Não é necessário receber X-Tenant-Id nos métodos pois o TenantInterceptor
+ * já valida e injeta o tenant no contexto antes dos métodos serem chamados.
+ */
 @RestController
 @RequestMapping("/blocked-days")
 @RequiredArgsConstructor
-public class BlockedDayController {
+public class BlockedDayController extends BaseController {
 
     private final BlockedDayService blockedDayService;
 
     /**
-     * POST /blocked-days/specific
-     * Bloqueia uma data específica (ex: feriado, evento especial)
+     * Bloqueia uma data específica para agendamentos.
+     *
+     * @param request Dados do bloqueio (data e motivo)
+     * @return Bloqueio criado (201 Created)
      */
     @PostMapping("/specific")
-    public ResponseEntity<BlockedDayEntity> blockSpecificDate(
-            @RequestHeader("X-Tenant-Id") String tenantId,
-            @Valid @RequestBody BlockSpecificDateRequest request) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
-        BlockedDayEntity blockedDay = blockedDayService.blockSpecificDate(request.getDate(), request.getReason());
+    public ResponseEntity<BlockedDayEntity> blockSpecificDate(@Valid @RequestBody BlockSpecificDateRequest request) {
+        BlockedDayEntity blockedDay = blockedDayService.blockSpecificDate(
+                request.getDate(),
+                request.getReason()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(blockedDay);
     }
 
     /**
-     * POST /blocked-days/recurring
-     * Bloqueia um dia da semana recorrente (ex: todo domingo)
+     * Bloqueia um dia da semana de forma recorrente.
+     *
+     * @param request Dados do bloqueio (dia da semana e motivo)
+     * @return Bloqueio criado (201 Created)
      */
     @PostMapping("/recurring")
-    public ResponseEntity<BlockedDayEntity> blockRecurringDay(
-            @RequestHeader("X-Tenant-Id") String tenantId,
-            @Valid @RequestBody BlockRecurringDayRequest request) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
-        BlockedDayEntity blockedDay = blockedDayService.blockRecurringDayOfWeek(request.getDayOfWeek(), request.getReason());
+    public ResponseEntity<BlockedDayEntity> blockRecurringDay(@Valid @RequestBody BlockRecurringDayRequest request) {
+        BlockedDayEntity blockedDay = blockedDayService.blockRecurringDayOfWeek(
+                request.getDayOfWeek(),
+                request.getReason()
+        );
         return ResponseEntity.status(HttpStatus.CREATED).body(blockedDay);
     }
 
     /**
-     * GET /blocked-days
-     * Lista todos os dias bloqueados (específicos e recorrentes)
+     * Retorna todos os bloqueios (específicos e recorrentes).
+     *
+     * @return Lista de bloqueios (200 OK)
      */
     @GetMapping
-    public ResponseEntity<List<BlockedDayEntity>> getAllBlockedDays(
-            @RequestHeader("X-Tenant-Id") String tenantId) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<List<BlockedDayEntity>> getAllBlockedDays() {
         List<BlockedDayEntity> blockedDays = blockedDayService.getAllBlockedDays();
         return ResponseEntity.ok(blockedDays);
     }
 
     /**
-     * GET /blocked-days/specific
-     * Lista apenas bloqueios de datas específicas
+     * Retorna apenas bloqueios de datas específicas.
+     *
+     * @return Lista de bloqueios específicos (200 OK)
      */
     @GetMapping("/specific")
-    public ResponseEntity<List<BlockedDayEntity>> getSpecificBlockedDates(
-            @RequestHeader("X-Tenant-Id") String tenantId) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<List<BlockedDayEntity>> getSpecificBlockedDates() {
         List<BlockedDayEntity> blockedDays = blockedDayService.getSpecificBlockedDates();
         return ResponseEntity.ok(blockedDays);
     }
 
     /**
-     * GET /blocked-days/recurring
-     * Lista apenas bloqueios recorrentes (dias da semana)
+     * Retorna apenas bloqueios recorrentes (dias da semana).
+     *
+     * @return Lista de bloqueios recorrentes (200 OK)
      */
     @GetMapping("/recurring")
-    public ResponseEntity<List<BlockedDayEntity>> getRecurringBlockedDays(
-            @RequestHeader("X-Tenant-Id") String tenantId) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<List<BlockedDayEntity>> getRecurringBlockedDays() {
         List<BlockedDayEntity> blockedDays = blockedDayService.getRecurringBlockedDays();
         return ResponseEntity.ok(blockedDays);
     }
 
     /**
-     * GET /blocked-days/available?startDate=2026-01-01&endDate=2026-01-31
-     * Retorna lista de datas disponíveis (não bloqueadas) dentro de um período
+     * Retorna datas disponíveis (não bloqueadas) em um período.
+     *
+     * @param startDate Data inicial do período
+     * @param endDate   Data final do período
+     * @return Lista de datas disponíveis (200 OK)
      */
     @GetMapping("/available")
     public ResponseEntity<List<LocalDate>> getAvailableDates(
-            @RequestHeader("X-Tenant-Id") String tenantId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+
         List<LocalDate> availableDates = blockedDayService.getAvailableDates(startDate, endDate);
         return ResponseEntity.ok(availableDates);
     }
 
     /**
-     * DELETE /blocked-days/{blockedDayId}
-     * Remove um bloqueio (libera o dia)
+     * Remove um bloqueio existente.
+     *
+     * @param blockedDayId ID do bloqueio a remover
+     * @return Resposta vazia (204 No Content)
      */
     @DeleteMapping("/{blockedDayId}")
-    public ResponseEntity<Void> unblockDay(
-            @RequestHeader("X-Tenant-Id") String tenantId,
-            @PathVariable UUID blockedDayId) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<Void> unblockDay(@PathVariable UUID blockedDayId) {
         blockedDayService.unblockDay(blockedDayId);
         return ResponseEntity.noContent().build();
     }

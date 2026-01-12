@@ -1,7 +1,6 @@
 package lash_salao_kc.agendamento_back.controller;
 
 import jakarta.validation.Valid;
-import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.dto.CreateServiceRequest;
 import lash_salao_kc.agendamento_back.domain.dto.UpdateServiceRequest;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
@@ -14,88 +13,106 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Controller REST para gerenciamento de serviços oferecidos.
+ * Expõe endpoints para operações CRUD de serviços.
+ *
+ * NOTA: Não é necessário receber X-Tenant-Id nos métodos pois o TenantInterceptor
+ * já valida e injeta o tenant no contexto antes dos métodos serem chamados.
+ */
 @RestController
 @RequestMapping("/services")
 @RequiredArgsConstructor
-public class ServicesController {
+public class ServicesController extends BaseController {
+
     private final ServicesService servicesService;
 
     /**
-     * POST /services
-     * Cria um novo serviço
+     * Cria um novo serviço.
+     *
+     * @param request Dados do serviço
+     * @return Serviço criado (201 Created)
      */
     @PostMapping
-    public ResponseEntity<ServicesEntity> createService(
-            @RequestHeader("X-Tenant-Id") String tenantId,
-            @Valid @RequestBody CreateServiceRequest request) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
-        ServicesEntity entity = new ServicesEntity();
-        entity.setTenantId(tenantId);
-        entity.setName(request.getName());
-        entity.setDuration(request.getDuration());
-        entity.setPrice(request.getPrice());
-        ServicesEntity saved = servicesService.saveService(entity);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    public ResponseEntity<ServicesEntity> createService(@Valid @RequestBody CreateServiceRequest request) {
+        String tenantId = getTenantFromContext();
+        ServicesEntity service = buildServiceEntity(request, tenantId);
+        ServicesEntity savedService = servicesService.saveService(service);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedService);
     }
 
     /**
-     * GET /services
-     * Lista todos os serviços
+     * Retorna todos os serviços do tenant.
+     *
+     * @return Lista de serviços (200 OK)
      */
     @GetMapping
-    public ResponseEntity<List<ServicesEntity>> getAllServices(
-            @RequestHeader("X-Tenant-Id") String tenantId) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<List<ServicesEntity>> getAllServices() {
         List<ServicesEntity> services = servicesService.findAll();
         return ResponseEntity.ok(services);
     }
 
     /**
-     * GET /services/{id}
-     * Busca um serviço por ID
+     * Retorna um serviço específico por ID.
+     *
+     * @param id ID do serviço
+     * @return Serviço encontrado (200 OK)
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ServicesEntity> getServiceById(
-            @RequestHeader("X-Tenant-Id") String tenantId,
-            @PathVariable UUID id) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<ServicesEntity> getServiceById(@PathVariable UUID id) {
         ServicesEntity service = servicesService.findById(id);
         return ResponseEntity.ok(service);
     }
 
     /**
-     * PUT /services/{id}
-     * Atualiza um serviço existente
+     * Atualiza um serviço existente.
+     *
+     * @param id      ID do serviço a atualizar
+     * @param request Dados atualizados
+     * @return Serviço atualizado (200 OK)
      */
     @PutMapping("/{id}")
     public ResponseEntity<ServicesEntity> updateService(
-            @RequestHeader("X-Tenant-Id") String tenantId,
             @PathVariable UUID id,
             @Valid @RequestBody UpdateServiceRequest request) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
-        ServicesEntity updatedService = new ServicesEntity();
-        updatedService.setName(request.getName());
-        updatedService.setDuration(request.getDuration());
-        updatedService.setPrice(request.getPrice());
-        ServicesEntity updated = servicesService.updateService(id, updatedService);
-        return ResponseEntity.ok(updated);
+
+        ServicesEntity serviceToUpdate = buildServiceEntityFromUpdateRequest(request);
+        ServicesEntity updatedService = servicesService.updateService(id, serviceToUpdate);
+        return ResponseEntity.ok(updatedService);
     }
 
     /**
-     * DELETE /services/{id}
-     * Deleta um serviço
+     * Deleta um serviço.
+     *
+     * @param id ID do serviço a deletar
+     * @return Resposta vazia (204 No Content)
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteService(
-            @RequestHeader("X-Tenant-Id") String tenantId,
-            @PathVariable UUID id) {
-        tenantId = tenantId.toLowerCase().trim();
-        TenantContext.setTenantId(tenantId);
+    public ResponseEntity<Void> deleteService(@PathVariable UUID id) {
         servicesService.deleteService(id);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Constrói entidade de serviço a partir do DTO de criação.
+     */
+    private ServicesEntity buildServiceEntity(CreateServiceRequest request, String tenantId) {
+        ServicesEntity entity = new ServicesEntity();
+        entity.setTenantId(tenantId);
+        entity.setName(request.getName());
+        entity.setDuration(request.getDuration());
+        entity.setPrice(request.getPrice());
+        return entity;
+    }
+
+    /**
+     * Constrói entidade de serviço a partir do DTO de atualização.
+     */
+    private ServicesEntity buildServiceEntityFromUpdateRequest(UpdateServiceRequest request) {
+        ServicesEntity entity = new ServicesEntity();
+        entity.setName(request.getName());
+        entity.setDuration(request.getDuration());
+        entity.setPrice(request.getPrice());
+        return entity;
     }
 }

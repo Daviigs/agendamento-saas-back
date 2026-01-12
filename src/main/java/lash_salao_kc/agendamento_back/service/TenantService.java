@@ -6,20 +6,26 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Serviço para gerenciar os tenants (clientes) do sistema
- * Em produção, isso pode vir de um banco de dados ou configuração
+ * Serviço responsável pelo gerenciamento de tenants (clientes multi-tenant).
+ * Em um cenário de produção, os dados dos tenants devem vir de um banco de dados.
+ *
+ * Multi-tenancy permite que múltiplos clientes compartilhem a mesma aplicação
+ * mantendo seus dados isolados.
  */
 @Service
 public class TenantService {
 
     /**
-     * Retorna lista de todos os tenants ativos no sistema
-     * Em produção, pode buscar de uma tabela tb_tenants
-     * Por enquanto, retorna uma lista fixa com os dois clientes: KC e MJS
+     * Retorna lista de todos os tenants ativos no sistema.
+     *
+     * NOTA: Implementação atual usa lista fixa. Em produção, buscar de tabela
+     * de tenants no banco de dados com query:
+     * SELECT tenant_id FROM tb_tenants WHERE active = true
+     *
+     * @return Lista de IDs dos tenants ativos
      */
     public List<String> getAllActiveTenants() {
-        // TODO: Em produção, buscar de uma tabela de tenants
-        // Por exemplo: SELECT tenant_id FROM tb_tenants WHERE active = true
+        // TODO: Em produção, substituir por consulta ao banco de dados
         return Arrays.asList("kc", "mjs");
     }
 }

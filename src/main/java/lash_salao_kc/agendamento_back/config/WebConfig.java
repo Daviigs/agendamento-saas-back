@@ -6,8 +6,16 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Configuração para registrar o TenantInterceptor
- * Ele será executado em todas as requisições HTTP
+ * Configuração de interceptors Web MVC.
+ * Registra o TenantInterceptor para validação de multi-tenancy em todas as requisições.
+ *
+ * Endpoints excluídos da validação:
+ * - /h2-console/** - Console H2 Database
+ * - /static/** - Recursos estáticos
+ * - /error - Páginas de erro do Spring
+ * - /swagger-ui/** - Documentação Swagger
+ * - /v3/api-docs/** - OpenAPI docs
+ * - /actuator/** - Spring Actuator (se habilitado)
  */
 @Configuration
 @RequiredArgsConstructor
@@ -17,11 +25,16 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // Registra o interceptor para todas as requisições
-        // Exclui apenas o console H2 e recursos estáticos
         registry.addInterceptor(tenantInterceptor)
                 .addPathPatterns("/**")
-                .excludePathPatterns("/h2-console/**", "/static/**");
+                .excludePathPatterns(
+                        "/h2-console/**",
+                        "/static/**",
+                        "/error",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/actuator/**"
+                );
     }
 }
 
