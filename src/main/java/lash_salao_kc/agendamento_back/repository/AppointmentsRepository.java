@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface AppoitmentsRepository extends JpaRepository<AppointmentsEntity, UUID> {
+public interface AppointmentsRepository extends JpaRepository<AppointmentsEntity, UUID> {
 
     /**
      * Busca agendamentos por tenant
@@ -43,3 +43,4 @@ public interface AppoitmentsRepository extends JpaRepository<AppointmentsEntity,
             @Param("limitTime") java.time.LocalTime limitTime
     );
 }
+
