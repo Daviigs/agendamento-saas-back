@@ -10,10 +10,29 @@ Sistema backend para gerenciamento de agendamentos de salão de beleza, desenvol
 - ✅ **Múltiplos Serviços por Agendamento**: Um cliente pode agendar vários serviços de uma vez
 - ✅ **Gestão de Serviços**: CRUD completo de serviços oferecidos
 - ✅ **Bloqueio de Datas**: Bloqueio de datas específicas (feriados) ou dias da semana recorrentes (folgas)
-- ✅ **Validação de Conflitos**: Impede agendamentos em horários já ocupados
+- ✅ **🆕 Bloqueio de Horários Específicos**: Bloquear intervalos de tempo em datas específicas
+- ✅ **🆕 Bloqueio de Horários Recorrentes**: Bloquear intervalos semanalmente (ex: almoço toda segunda)
+- ✅ **🆕 Horários Personalizados por Profissional**: Cada tenant tem seu próprio horário de trabalho
+- ✅ **🆕 Cálculo Inteligente de Disponibilidade**: Considera todos os bloqueios e agendamentos
+- ✅ **Validação de Conflitos**: Impede agendamentos em horários já ocupados ou bloqueados
 - ✅ **Notificações WhatsApp**: Confirmação de agendamento e lembretes automáticos
 - ✅ **Lembretes Automáticos**: Envio de lembretes 2 horas antes do agendamento
 - ✅ **Multi-Tenancy**: Isolamento de dados por cliente (tenant)
+
+## 🆕 Sistema Avançado de Bloqueio de Horários
+
+**Nova Funcionalidade v1.0.0** - Sistema completo de gerenciamento de disponibilidade:
+
+- **Horários de Trabalho Configuráveis**: Cada profissional define seu próprio horário (ex: kc: 09:00-18:00, mjs: 07:00-16:00)
+- **Bloqueios Pontuais**: Bloqueie horários específicos em datas específicas (ex: 14:00-16:00 em 25/01/2026)
+- **Bloqueios Recorrentes**: Bloqueie horários semanalmente (ex: 12:00-13:00 todas as segundas-feiras)
+- **Desbloqueio Flexível**: Remova bloqueios tornando horários disponíveis novamente
+
+📚 **Documentação Completa**: 
+- [ADVANCED_BLOCKING_SYSTEM.md](ADVANCED_BLOCKING_SYSTEM.md) - Documentação do sistema
+- [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) - Guia de migração
+- [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md) - Diagramas de arquitetura
+- [API_EXAMPLES.json](API_EXAMPLES.json) - Exemplos de requisições
 
 ---
 

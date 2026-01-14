@@ -35,77 +35,27 @@ public class AppointmentsService {
     private final ServicesRepository servicesRepository;
     private final WhatsappService whatsAppService;
     private final BlockedDayService blockedDayService;
+    private final AvailableTimeSlotsService availableTimeSlotsService;
+    private final TenantWorkingHoursService workingHoursService;
+    private final BlockedTimeSlotService blockedTimeSlotService;
 
-    // Constantes de configuração do negócio
-    private static final LocalTime BUSINESS_START = LocalTime.of(9, 0);
-    private static final LocalTime BUSINESS_END = LocalTime.of(18, 0);
-    private static final LocalTime LAST_APPOINTMENT_START = LocalTime.of(16, 0);
-    private static final int SLOT_INTERVAL_MINUTES = 30;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     /**
      * Retorna todos os horários disponíveis para agendamento em uma data específica.
-     * Considera bloqueios de datas e agendamentos já existentes.
+     * Utiliza o novo sistema que considera:
+     * - Horário de trabalho do tenant
+     * - Bloqueios de horários específicos
+     * - Bloqueios recorrentes
+     * - Bloqueios de dia inteiro
+     * - Agendamentos existentes
      *
      * @param date Data para consulta de horários disponíveis
-     * @return Lista de horários disponíveis (vazia se a data estiver bloqueada)
+     * @return Lista de horários disponíveis
      */
     public List<LocalTime> getAvailableTimeSlots(LocalDate date) {
-        if (blockedDayService.isDateBlocked(date)) {
-            return new ArrayList<>();
-        }
-
-        List<AppointmentsEntity> appointments = getAppointmentsByDate(date);
-        List<LocalTime> allPossibleSlots = generateAllTimeSlots();
-
-        return allPossibleSlots.stream()
-                .filter(slot -> isSlotAvailable(slot, appointments))
-                .toList();
-    }
-
-    /**
-     * Gera todos os horários possíveis de agendamento no dia.
-     * Slots de 30 em 30 minutos, das 09:00 até 16:00 (último horário de início).
-     *
-     * @return Lista com todos os horários possíveis
-     */
-    private List<LocalTime> generateAllTimeSlots() {
-        List<LocalTime> slots = new ArrayList<>();
-        LocalTime currentSlot = BUSINESS_START;
-
-        while (currentSlot.isBefore(LAST_APPOINTMENT_START) || currentSlot.equals(LAST_APPOINTMENT_START)) {
-            slots.add(currentSlot);
-            currentSlot = currentSlot.plusMinutes(SLOT_INTERVAL_MINUTES);
-        }
-
-        return slots;
-    }
-
-    /**
-     * Verifica se um horário específico está disponível para agendamento.
-     * Um horário está disponível se não houver conflito com agendamentos existentes.
-     *
-     * @param slot         Horário a ser verificado
-     * @param appointments Lista de agendamentos existentes na data
-     * @return true se o horário está disponível, false caso contrário
-     */
-    private boolean isSlotAvailable(LocalTime slot, List<AppointmentsEntity> appointments) {
-        return appointments.stream()
-                .noneMatch(appointment -> isTimeInAppointmentRange(slot, appointment));
-    }
-
-    /**
-     * Verifica se um horário está dentro do range de um agendamento existente.
-     *
-     * @param time        Horário a verificar
-     * @param appointment Agendamento existente
-     * @return true se o horário está no range do agendamento
-     */
-    private boolean isTimeInAppointmentRange(LocalTime time, AppointmentsEntity appointment) {
-        LocalTime start = appointment.getStartTime();
-        LocalTime end = appointment.getEndTime();
-        return (time.equals(start) || time.isAfter(start)) && time.isBefore(end);
+        return availableTimeSlotsService.getAvailableTimeSlots(date);
     }
 
     /**
@@ -230,6 +180,7 @@ public class AppointmentsService {
         LocalTime endTime = startTime.plusMinutes(totalDuration);
 
         validateBusinessHours(startTime, endTime);
+        validateNoTimeSlotBlocks(date, startTime, endTime);
         validateNoConflicts(date, startTime, endTime);
 
         AppointmentsEntity appointment = buildAppointment(
@@ -253,6 +204,19 @@ public class AppointmentsService {
     private void validateDateNotBlocked(LocalDate date) {
         if (blockedDayService.isDateBlocked(date)) {
             throw new BusinessException("Não é possível agendar nesta data. O salão estará fechado.");
+        }
+    }
+
+    /**
+     * Valida se não há bloqueios de horário no período desejado.
+     *
+     * @throws BusinessException se houver bloqueio de horário
+     */
+    private void validateNoTimeSlotBlocks(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        if (blockedTimeSlotService.isIntervalBlocked(date, startTime, endTime)) {
+            throw new BusinessException(
+                    String.format("Não é possível agendar entre %s e %s. Este horário está bloqueado.",
+                            startTime, endTime));
         }
     }
 
@@ -377,21 +341,19 @@ public class AppointmentsService {
     }
 
     /**
-     * Valida se o horário está dentro do expediente do salão.
+     * Valida se o horário está dentro do expediente do tenant.
+     * Utiliza o horário de trabalho configurado para o tenant.
      *
      * @throws BusinessException se o horário for inválido
      */
     private void validateBusinessHours(LocalTime startTime, LocalTime endTime) {
-        if (startTime.isBefore(BUSINESS_START)) {
-            throw new BusinessException(
-                    String.format("Horário de início %s está antes do horário de abertura (%s)",
-                            startTime, BUSINESS_START));
-        }
+        String tenantId = TenantContext.getTenantId();
 
-        if (endTime.isAfter(BUSINESS_END)) {
+        if (!workingHoursService.isIntervalWithinWorkingHours(startTime, endTime, tenantId)) {
+            var workingHours = workingHoursService.getWorkingHours(tenantId);
             throw new BusinessException(
-                    String.format("Horário de término %s excede o horário de fechamento (%s). " +
-                            "O salão fecha às %s", endTime, BUSINESS_END, BUSINESS_END));
+                    String.format("Horário de agendamento (%s às %s) está fora do expediente de trabalho (%s às %s)",
+                            startTime, endTime, workingHours.getStartTime(), workingHours.getEndTime()));
         }
     }
 
