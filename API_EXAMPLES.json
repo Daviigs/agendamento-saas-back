@@ -1,0 +1,240 @@
+{
+  "name": "Sistema Avançado de Bloqueio de Horários",
+  "description": "Collection de exemplos para o sistema de bloqueio avançado",
+  "requests": [
+    {
+      "name": "1. Configurar Horário de Trabalho - KC",
+      "method": "POST",
+      "url": "http://localhost:8080/working-hours",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "startTime": "09:00",
+        "endTime": "18:00",
+        "slotIntervalMinutes": 30
+      },
+      "description": "Configura horário de trabalho das 09:00 às 18:00 para o tenant KC"
+    },
+    {
+      "name": "2. Configurar Horário de Trabalho - MJS",
+      "method": "POST",
+      "url": "http://localhost:8080/working-hours",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "mjs"
+      },
+      "body": {
+        "startTime": "07:00",
+        "endTime": "16:00",
+        "slotIntervalMinutes": 30
+      },
+      "description": "Configura horário de trabalho das 07:00 às 16:00 para o tenant MJS"
+    },
+    {
+      "name": "3. Consultar Horário de Trabalho",
+      "method": "GET",
+      "url": "http://localhost:8080/working-hours",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Retorna configuração de horário de trabalho do tenant"
+    },
+    {
+      "name": "4. Bloquear Horário Específico - Almoço",
+      "method": "POST",
+      "url": "http://localhost:8080/blocked-time-slots/specific",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "date": "2026-01-25",
+        "startTime": "12:00",
+        "endTime": "13:00",
+        "reason": "Horário de almoço"
+      },
+      "description": "Bloqueia das 12:00 às 13:00 no dia 25/01/2026"
+    },
+    {
+      "name": "5. Bloquear Horário Específico - Reunião",
+      "method": "POST",
+      "url": "http://localhost:8080/blocked-time-slots/specific",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "date": "2026-01-30",
+        "startTime": "14:00",
+        "endTime": "16:00",
+        "reason": "Reunião externa"
+      },
+      "description": "Bloqueia das 14:00 às 16:00 no dia 30/01/2026"
+    },
+    {
+      "name": "6. Bloquear Horário Recorrente - Almoço Segunda",
+      "method": "POST",
+      "url": "http://localhost:8080/blocked-time-slots/recurring",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "dayOfWeek": "MONDAY",
+        "startTime": "12:00",
+        "endTime": "13:00",
+        "reason": "Almoço recorrente - toda segunda"
+      },
+      "description": "Bloqueia das 12:00 às 13:00 todas as segundas-feiras"
+    },
+    {
+      "name": "7. Bloquear Horário Recorrente - Limpeza Sexta",
+      "method": "POST",
+      "url": "http://localhost:8080/blocked-time-slots/recurring",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "dayOfWeek": "FRIDAY",
+        "startTime": "16:00",
+        "endTime": "17:00",
+        "reason": "Horário de limpeza semanal"
+      },
+      "description": "Bloqueia das 16:00 às 17:00 todas as sextas-feiras"
+    },
+    {
+      "name": "8. Listar Todos os Bloqueios de Horário",
+      "method": "GET",
+      "url": "http://localhost:8080/blocked-time-slots",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Lista todos os bloqueios de horário (específicos e recorrentes)"
+    },
+    {
+      "name": "9. Listar Bloqueios Específicos",
+      "method": "GET",
+      "url": "http://localhost:8080/blocked-time-slots/specific",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Lista apenas bloqueios de datas específicas"
+    },
+    {
+      "name": "10. Listar Bloqueios Recorrentes",
+      "method": "GET",
+      "url": "http://localhost:8080/blocked-time-slots/recurring",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Lista apenas bloqueios recorrentes (por dia da semana)"
+    },
+    {
+      "name": "11. Consultar Bloqueios de uma Data",
+      "method": "GET",
+      "url": "http://localhost:8080/blocked-time-slots/date/2026-01-20",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Lista bloqueios ativos em uma data específica (inclui recorrentes)"
+    },
+    {
+      "name": "12. Desbloquear Horário",
+      "method": "DELETE",
+      "url": "http://localhost:8080/blocked-time-slots/{blockedSlotId}",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Remove um bloqueio de horário. Substitua {blockedSlotId} pelo ID real"
+    },
+    {
+      "name": "13. Consultar Horários Disponíveis",
+      "method": "GET",
+      "url": "http://localhost:8080/appointments/available-slots?date=2026-01-20",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Retorna lista de horários disponíveis para agendamento"
+    },
+    {
+      "name": "14. Criar Agendamento em Horário Disponível",
+      "method": "POST",
+      "url": "http://localhost:8080/appointments",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "serviceIds": ["id-do-servico"],
+        "date": "2026-01-20",
+        "startTime": "10:00",
+        "userName": "João Silva",
+        "userPhone": "+5511999999999"
+      },
+      "description": "Cria um agendamento. O sistema valida automaticamente bloqueios"
+    },
+    {
+      "name": "15. Tentar Agendar em Horário Bloqueado (Deve Falhar)",
+      "method": "POST",
+      "url": "http://localhost:8080/appointments",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "serviceIds": ["id-do-servico"],
+        "date": "2026-01-25",
+        "startTime": "12:00",
+        "userName": "Maria Santos",
+        "userPhone": "+5511988888888"
+      },
+      "description": "Tenta criar agendamento em horário bloqueado. Deve retornar erro 422"
+    },
+    {
+      "name": "16. Bloquear Dia Inteiro (Sistema Antigo)",
+      "method": "POST",
+      "url": "http://localhost:8080/blocked-days/specific",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tenant-Id": "kc"
+      },
+      "body": {
+        "date": "2026-12-25",
+        "reason": "Natal - Fechado"
+      },
+      "description": "Bloqueia o dia inteiro (sistema antigo ainda funciona)"
+    },
+    {
+      "name": "17. Remover Configuração de Horário",
+      "method": "DELETE",
+      "url": "http://localhost:8080/working-hours",
+      "headers": {
+        "X-Tenant-Id": "kc"
+      },
+      "description": "Remove configuração de horário. Volta a usar padrão (09:00-18:00)"
+    }
+  ],
+  "environments": {
+    "local": {
+      "baseUrl": "http://localhost:8080",
+      "tenantKc": "kc",
+      "tenantMjs": "mjs"
+    },
+    "production": {
+      "baseUrl": "https://api.seudominio.com",
+      "tenantKc": "kc",
+      "tenantMjs": "mjs"
+    }
+  },
+  "notes": [
+    "Todos os endpoints requerem o header X-Tenant-Id",
+    "Substitua {blockedSlotId} e {serviceId} pelos IDs reais",
+    "Datas no formato ISO: YYYY-MM-DD",
+    "Horários no formato HH:mm (24h)",
+    "Dias da semana: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY"
+  ]
+}
+
