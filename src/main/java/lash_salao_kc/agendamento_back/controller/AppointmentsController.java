@@ -42,11 +42,12 @@ public class AppointmentsController extends BaseController {
         log.info("=== Iniciando criação de agendamento ===");
         String tenantId = getTenantFromContext();
         log.info("Tenant ID: {}", tenantId);
-        log.info("Request: serviceIds={}, date={}, startTime={}, userName={}, userPhone={}",
-                request.getServiceIds(), request.getDate(), request.getStartTime(),
+        log.info("Request: professionalId={}, serviceIds={}, date={}, startTime={}, userName={}, userPhone={}",
+                request.getProfessionalId(), request.getServiceIds(), request.getDate(), request.getStartTime(),
                 request.getUserName(), request.getUserPhone());
 
         AppointmentsEntity appointment = appointmentsService.createAppointment(
+                request.getProfessionalId(),
                 request.getServiceIds(),
                 request.getDate(),
                 request.getStartTime(),
@@ -60,16 +61,18 @@ public class AppointmentsController extends BaseController {
     }
 
     /**
-     * Retorna horários disponíveis para agendamento em uma data específica.
+     * Retorna horários disponíveis para agendamento de um profissional em uma data específica.
      *
+     * @param professionalId ID do profissional
      * @param date Data para consulta
      * @return Lista de horários disponíveis (200 OK)
      */
     @GetMapping("/available-slots")
     public ResponseEntity<List<LocalTime>> getAvailableSlots(
+            @RequestParam UUID professionalId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
 
-        List<LocalTime> availableSlots = appointmentsService.getAvailableTimeSlots(date);
+        List<LocalTime> availableSlots = appointmentsService.getAvailableTimeSlots(professionalId, date);
         return ResponseEntity.ok(availableSlots);
     }
 

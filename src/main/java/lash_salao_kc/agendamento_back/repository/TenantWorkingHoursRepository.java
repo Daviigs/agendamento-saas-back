@@ -2,6 +2,8 @@ package lash_salao_kc.agendamento_back.repository;
 
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -19,5 +21,11 @@ public interface TenantWorkingHoursRepository extends JpaRepository<TenantWorkin
      * Verifica se existe configuração de horário para um tenant.
      */
     boolean existsByTenantId(String tenantId);
+
+    /**
+     * Busca horário de trabalho por profissional ID.
+     */
+    @Query("SELECT w FROM TenantWorkingHoursEntity w WHERE w.professional.id = :professionalId")
+    Optional<TenantWorkingHoursEntity> findByProfessionalId(@Param("professionalId") UUID professionalId);
 }
 

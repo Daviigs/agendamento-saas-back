@@ -33,10 +33,19 @@ public class TenantWorkingHoursEntity {
 
     /**
      * ID do tenant (profissional/colaborador).
+     * Mantido por compatibilidade, mas o vínculo real é através do professional.
      */
     @NotNull
-    @Column(name = "tenant_id", nullable = false, unique = true)
+    @Column(name = "tenant_id", nullable = false)
     private String tenantId;
+
+    /**
+     * Profissional ao qual o horário de trabalho pertence.
+     */
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "professional_id", nullable = false)
+    private ProfessionalEntity professional;
 
     /**
      * Horário de início do expediente.

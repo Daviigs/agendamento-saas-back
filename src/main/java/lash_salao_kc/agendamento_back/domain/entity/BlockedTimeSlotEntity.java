@@ -33,10 +33,19 @@ public class BlockedTimeSlotEntity {
 
     /**
      * ID do tenant (profissional) dono deste bloqueio.
+     * Mantido por compatibilidade, mas o vínculo real é através do professional.
      */
     @NotNull
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
+
+    /**
+     * Profissional ao qual o bloqueio pertence.
+     */
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "professional_id", nullable = false)
+    private ProfessionalEntity professional;
 
     /**
      * Data específica do bloqueio (para bloqueios pontuais).

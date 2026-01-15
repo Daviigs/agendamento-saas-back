@@ -164,6 +164,29 @@ public class BlockedTimeSlotService {
     }
 
     /**
+     * Lista bloqueios de horário de um profissional específico para uma data.
+     * Inclui tanto bloqueios específicos da data quanto bloqueios recorrentes do dia da semana.
+     *
+     * @param professionalId ID do profissional
+     * @param date Data a consultar
+     * @return Lista de bloqueios ativos na data para o profissional
+     */
+    public List<BlockedTimeSlotEntity> getBlockedTimeSlotsForProfessionalAndDate(UUID professionalId, LocalDate date) {
+        // Busca bloqueios específicos da data do profissional
+        List<BlockedTimeSlotEntity> specificBlocks = blockedTimeSlotRepository
+                .findByProfessionalIdAndSpecificDate(professionalId, date);
+
+        // Busca bloqueios recorrentes do dia da semana do profissional
+        DayOfWeek dayOfWeek = date.getDayOfWeek();
+        List<BlockedTimeSlotEntity> recurringBlocks = blockedTimeSlotRepository
+                .findByProfessionalIdAndDayOfWeekAndRecurring(professionalId, dayOfWeek, true);
+
+        // Combina ambas as listas
+        specificBlocks.addAll(recurringBlocks);
+        return specificBlocks;
+    }
+
+    /**
      * Lista apenas bloqueios recorrentes do tenant atual.
      *
      * @return Lista de bloqueios recorrentes
