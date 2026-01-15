@@ -37,10 +37,28 @@ public class AppointmentsEntity {
 
     /**
      * ID do tenant (cliente multi-tenant) dono deste agendamento.
+     * Mantido por compatibilidade, mas o vínculo real é através do professional.
      */
     @NotNull
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
+
+    /**
+     * Profissional responsável pelo agendamento.
+     */
+    @NotNull
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "professional_id", nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private ProfessionalEntity professional;
+
+    /**
+     * Retorna apenas o nome do profissional para serialização JSON.
+     */
+    @JsonProperty("professionalName")
+    public String getProfessionalName() {
+        return professional != null ? professional.getProfessionalName() : null;
+    }
 
     /**
      * Data do agendamento.

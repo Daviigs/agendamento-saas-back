@@ -60,5 +60,22 @@ public interface BlockedTimeSlotRepository extends JpaRepository<BlockedTimeSlot
             @Param("dayOfWeek") DayOfWeek dayOfWeek,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
+
+    /**
+     * Busca bloqueios de horário para uma data específica de um profissional.
+     */
+    @Query("SELECT b FROM BlockedTimeSlotEntity b WHERE b.professional.id = :professionalId AND b.specificDate = :date AND b.recurring = false")
+    List<BlockedTimeSlotEntity> findByProfessionalIdAndSpecificDate(
+            @Param("professionalId") UUID professionalId,
+            @Param("date") LocalDate date);
+
+    /**
+     * Busca bloqueios recorrentes para um dia da semana de um profissional.
+     */
+    @Query("SELECT b FROM BlockedTimeSlotEntity b WHERE b.professional.id = :professionalId AND b.dayOfWeek = :dayOfWeek AND b.recurring = :recurring")
+    List<BlockedTimeSlotEntity> findByProfessionalIdAndDayOfWeekAndRecurring(
+            @Param("professionalId") UUID professionalId,
+            @Param("dayOfWeek") DayOfWeek dayOfWeek,
+            @Param("recurring") boolean recurring);
 }
 

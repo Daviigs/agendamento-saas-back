@@ -21,6 +21,9 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateAppointmentRequest {
 
+    @NotNull(message = "Profissional é obrigatório")
+    private UUID professionalId;
+
     @NotEmpty(message = "Pelo menos um serviço deve ser selecionado")
     private List<UUID> serviceIds;
 

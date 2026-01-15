@@ -28,6 +28,15 @@ public interface AppointmentsRepository extends JpaRepository<AppointmentsEntity
      */
     List<AppointmentsEntity> findByTenantIdAndUserPhone(String tenantId, String userPhone);
 
+    /**
+     * Busca agendamentos por profissional e data
+     */
+    @Query("SELECT a FROM AppointmentsEntity a WHERE a.professional.id = :professionalId AND a.date = :date")
+    List<AppointmentsEntity> findByProfessionalIdAndDate(
+            @Param("professionalId") UUID professionalId,
+            @Param("date") LocalDate date
+    );
+
     @Query("""
     SELECT a FROM AppointmentsEntity a
     WHERE a.tenantId = :tenantId

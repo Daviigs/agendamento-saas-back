@@ -3,12 +3,16 @@ package lash_salao_kc.agendamento_back.service;
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.dto.Whats;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
+import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
+import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.exception.AppointmentConflictException;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
 import lash_salao_kc.agendamento_back.exception.ResourceNotFoundException;
 import lash_salao_kc.agendamento_back.repository.AppointmentsRepository;
+import lash_salao_kc.agendamento_back.repository.ProfessionalRepository;
 import lash_salao_kc.agendamento_back.repository.ServicesRepository;
+import lash_salao_kc.agendamento_back.repository.TenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,24 +42,40 @@ public class AppointmentsService {
     private final AvailableTimeSlotsService availableTimeSlotsService;
     private final TenantWorkingHoursService workingHoursService;
     private final BlockedTimeSlotService blockedTimeSlotService;
+    private final ProfessionalRepository professionalRepository;
+    private final TenantRepository tenantRepository;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
     /**
-     * Retorna todos os horários disponíveis para agendamento em uma data específica.
+     * Retorna todos os horários disponíveis para agendamento de um profissional em uma data específica.
      * Utiliza o novo sistema que considera:
-     * - Horário de trabalho do tenant
-     * - Bloqueios de horários específicos
-     * - Bloqueios recorrentes
+     * - Horário de trabalho do profissional
+     * - Bloqueios de horários do profissional
+     * - Bloqueios recorrentes do profissional
      * - Bloqueios de dia inteiro
-     * - Agendamentos existentes
+     * - Agendamentos existentes do profissional
      *
+     * @param professionalId ID do profissional
      * @param date Data para consulta de horários disponíveis
      * @return Lista de horários disponíveis
      */
-    public List<LocalTime> getAvailableTimeSlots(LocalDate date) {
-        return availableTimeSlotsService.getAvailableTimeSlots(date);
+    public List<LocalTime> getAvailableTimeSlots(UUID professionalId, LocalDate date) {
+        String tenantId = TenantContext.getTenantId();
+
+        // Valida tenant
+        TenantEntity tenant = tenantRepository.findByTenantKeyAndActiveTrue(tenantId)
+                .orElseThrow(() -> new BusinessException(
+                        String.format("Tenant '%s' não encontrado ou inativo", tenantId)));
+
+        // Valida profissional pertence ao tenant e está ativo
+        ProfessionalEntity professional = professionalRepository
+                .findActiveByIdAndTenantId(professionalId, tenant.getId())
+                .orElseThrow(() -> new BusinessException(
+                        "Profissional não encontrado, inativo ou não pertence ao tenant"));
+
+        return availableTimeSlotsService.getAvailableTimeSlotsForProfessional(professionalId, date);
     }
 
     /**
@@ -145,33 +165,50 @@ public class AppointmentsService {
      * Cria um novo agendamento com um ou mais serviços.
      *
      * Validações realizadas:
+     * - Tenant existe e está ativo
+     * - Profissional pertence ao tenant
+     * - Profissional está ativo
+     * - Profissional possui horário configurado
      * - Data não está bloqueada
      * - Serviços existem
-     * - Horário está dentro do expediente
-     * - Não há conflito com outros agendamentos
+     * - Horário está dentro do expediente do profissional
+     * - Não há bloqueios de horário para o profissional
+     * - Não há conflito com outros agendamentos do profissional
      *
      * Após criação bem-sucedida, envia notificação via WhatsApp.
      *
-     * @param serviceIds Lista de IDs dos serviços a serem agendados
-     * @param date       Data do agendamento
-     * @param startTime  Horário de início
-     * @param userName   Nome do cliente
-     * @param userPhone  Telefone do cliente
-     * @param clienteId  ID do tenant (cliente)
+     * @param professionalId ID do profissional
+     * @param serviceIds     Lista de IDs dos serviços a serem agendados
+     * @param date           Data do agendamento
+     * @param startTime      Horário de início
+     * @param userName       Nome do cliente
+     * @param userPhone      Telefone do cliente
+     * @param clienteId      ID do tenant (cliente)
      * @return Agendamento criado e salvo
-     * @throws BusinessException             se a data estiver bloqueada
-     * @throws ResourceNotFoundException     se algum serviço não for encontrado
-     * @throws BusinessException             se o horário for inválido
+     * @throws BusinessException             se validações falharem
+     * @throws ResourceNotFoundException     se algum recurso não for encontrado
      * @throws AppointmentConflictException se houver conflito de horário
      */
     @Transactional
     public AppointmentsEntity createAppointment(
+            UUID professionalId,
             List<UUID> serviceIds,
             LocalDate date,
             LocalTime startTime,
             String userName,
             String userPhone,
             String clienteId) {
+
+        // Valida tenant
+        TenantEntity tenant = tenantRepository.findByTenantKeyAndActiveTrue(clienteId)
+                .orElseThrow(() -> new BusinessException(
+                        String.format("Tenant '%s' não encontrado ou inativo", clienteId)));
+
+        // Valida profissional pertence ao tenant e está ativo
+        ProfessionalEntity professional = professionalRepository
+                .findActiveByIdAndTenantId(professionalId, tenant.getId())
+                .orElseThrow(() -> new BusinessException(
+                        "Profissional não encontrado, inativo ou não pertence ao tenant"));
 
         validateDateNotBlocked(date);
 
@@ -181,10 +218,10 @@ public class AppointmentsService {
 
         validateBusinessHours(startTime, endTime);
         validateNoTimeSlotBlocks(date, startTime, endTime);
-        validateNoConflicts(date, startTime, endTime);
+        validateNoConflicts(professionalId, date, startTime, endTime);
 
         AppointmentsEntity appointment = buildAppointment(
-                date, startTime, endTime, services, userName, userPhone, clienteId
+                date, startTime, endTime, services, userName, userPhone, clienteId, professional
         );
 
         sendWhatsappNotification(appointment, services, clienteId);
@@ -256,10 +293,12 @@ public class AppointmentsService {
             List<ServicesEntity> services,
             String userName,
             String userPhone,
-            String clienteId) {
+            String clienteId,
+            ProfessionalEntity professional) {
 
         AppointmentsEntity appointment = new AppointmentsEntity();
         appointment.setTenantId(clienteId);
+        appointment.setProfessional(professional);
         appointment.setDate(date);
         appointment.setStartTime(startTime);
         appointment.setEndTime(endTime);
@@ -358,12 +397,14 @@ public class AppointmentsService {
     }
 
     /**
-     * Valida se não há conflitos com agendamentos existentes na mesma data.
+     * Valida que não há conflitos de horário para o profissional específico.
      *
      * @throws AppointmentConflictException se houver conflito de horário
      */
-    private void validateNoConflicts(LocalDate date, LocalTime startTime, LocalTime endTime) {
-        List<AppointmentsEntity> existingAppointments = getAppointmentsByDate(date);
+    private void validateNoConflicts(UUID professionalId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        // Busca apenas agendamentos do profissional específico na data
+        List<AppointmentsEntity> existingAppointments = appointmentsRepository
+                .findByProfessionalIdAndDate(professionalId, date);
 
         for (AppointmentsEntity existing : existingAppointments) {
             if (hasTimeConflict(startTime, endTime, existing)) {

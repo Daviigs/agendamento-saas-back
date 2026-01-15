@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Serviço responsável pelo gerenciamento de horários de trabalho dos tenants (profissionais).
@@ -48,6 +49,21 @@ public class TenantWorkingHoursService {
     public TenantWorkingHoursEntity getCurrentTenantWorkingHours() {
         String tenantId = TenantContext.getTenantId();
         return getWorkingHours(tenantId);
+    }
+
+    /**
+     * Obtém o horário de trabalho de um profissional específico.
+     * Se não existir configuração, retorna horários padrão.
+     *
+     * @param professionalId ID do profissional
+     * @return Horário de trabalho configurado ou padrão
+     */
+    public TenantWorkingHoursEntity getWorkingHoursByProfessional(UUID professionalId) {
+        return workingHoursRepository.findByProfessionalId(professionalId)
+                .orElseGet(() -> {
+                    String tenantId = TenantContext.getTenantId();
+                    return createDefaultWorkingHours(tenantId);
+                });
     }
 
     /**

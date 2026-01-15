@@ -3,8 +3,10 @@ package lash_salao_kc.agendamento_back.service;
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
 import lash_salao_kc.agendamento_back.domain.entity.BlockedTimeSlotEntity;
+import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import lash_salao_kc.agendamento_back.repository.AppointmentsRepository;
+import lash_salao_kc.agendamento_back.repository.ProfessionalRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +36,53 @@ public class AvailableTimeSlotsService {
     private final BlockedTimeSlotService blockedTimeSlotService;
     private final BlockedDayService blockedDayService;
     private final AppointmentsRepository appointmentsRepository;
+    private final ProfessionalRepository professionalRepository;
+
+    /**
+     * Retorna todos os horários disponíveis para agendamento de um profissional específico.
+     *
+     * @param professionalId ID do profissional
+     * @param date Data para consulta
+     * @return Lista de horários disponíveis
+     */
+    public List<LocalTime> getAvailableTimeSlotsForProfessional(UUID professionalId, LocalDate date) {
+        log.info("Calculando horários disponíveis para profissional {} na data {}", professionalId, date);
+
+        // Verifica se o dia inteiro está bloqueado
+        if (blockedDayService.isDateBlocked(date)) {
+            log.info("Dia {} está completamente bloqueado", date);
+            return new ArrayList<>();
+        }
+
+        // Busca o profissional (já validado anteriormente no AppointmentsService)
+        ProfessionalEntity professional = professionalRepository.findById(professionalId)
+                .orElseThrow(() -> new RuntimeException("Profissional não encontrado"));
+
+        // Obtém horário de trabalho do profissional
+        TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHoursByProfessional(professionalId);
+
+        // Gera todos os slots possíveis baseado no horário de trabalho
+        List<LocalTime> allPossibleSlots = generateAllTimeSlots(workingHours);
+
+        // Obtém bloqueios de horário deste profissional para esta data
+        List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService
+                .getBlockedTimeSlotsForProfessionalAndDate(professionalId, date);
+
+        // Obtém agendamentos existentes deste profissional na data
+        List<AppointmentsEntity> appointments = appointmentsRepository
+                .findByProfessionalIdAndDate(professionalId, date);
+
+        // Filtra slots disponíveis
+        List<LocalTime> availableSlots = allPossibleSlots.stream()
+                .filter(slot -> !isSlotBlocked(slot, blockedSlots))
+                .filter(slot -> !isSlotOccupiedByAppointment(slot, appointments))
+                .collect(Collectors.toList());
+
+        log.info("Encontrados {} horários disponíveis de {} possíveis para profissional {}",
+                availableSlots.size(), allPossibleSlots.size(), professionalId);
+
+        return availableSlots;
+    }
 
     /**
      * Retorna todos os horários disponíveis para agendamento em uma data específica.
