@@ -15,7 +15,7 @@ Sistema backend para gerenciamento de agendamentos de salão de beleza, desenvol
 - ✅ **🆕 Horários Personalizados por Profissional**: Cada tenant tem seu próprio horário de trabalho
 - ✅ **🆕 Cálculo Inteligente de Disponibilidade**: Considera todos os bloqueios e agendamentos
 - ✅ **Validação de Conflitos**: Impede agendamentos em horários já ocupados ou bloqueados
-- ✅ **Notificações WhatsApp**: Confirmação de agendamento e lembretes automáticos
+- ✅ **Notificações WhatsApp**: Confirmação, cancelamento e lembretes automáticos
 - ✅ **Lembretes Automáticos**: Envio de lembretes 2 horas antes do agendamento
 - ✅ **Multi-Tenancy**: Isolamento de dados por cliente (tenant)
 
@@ -346,6 +346,10 @@ TenantContext.clear() (finally)
 ### Integrações
 - **WhatsApp API** - Envio de notificações
   - Endpoint: `http://localhost:3001/whatsapp`
+  - Endpoints disponíveis:
+    - `/agendamento` - Confirmação de novo agendamento
+    - `/lembrete` - Lembrete 2 horas antes
+    - `/cancelamento` - Notificação de cancelamento
 
 ---
 

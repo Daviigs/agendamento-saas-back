@@ -432,6 +432,15 @@ public class AppointmentsService {
     @Transactional
     public void cancelAppointment(UUID appointmentId) {
         AppointmentsEntity appointment = getAppointmentById(appointmentId);
+
+        // Envia notificação de cancelamento via WhatsApp
+        try {
+            whatsAppService.enviarCancelamento(appointment);
+            log.info("Notificação de cancelamento enviada para {}", appointment.getUserPhone());
+        } catch (Exception e) {
+            log.error("Erro ao enviar notificação de cancelamento (prosseguindo com cancelamento): {}", e.getMessage());
+        }
+
         appointmentsRepository.delete(appointment);
     }
 }
