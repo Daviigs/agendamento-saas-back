@@ -19,6 +19,7 @@ public class WhatsappService {
     private static final String WHATSAPP_BASE_URL = "http://localhost:3001/whatsapp";
     private static final String APPOINTMENT_ENDPOINT = "/agendamento";
     private static final String REMINDER_ENDPOINT = "/lembrete";
+    private static final String CANCELAMENTO_ENDPOINT = "/cancelamento";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
 
@@ -67,6 +68,29 @@ public class WhatsappService {
     }
 
     /**
+     * Envia notificação de cancelamento de agendamento via WhatsApp.
+     *
+     * @param appointment Agendamento cancelado
+     * @throws RuntimeException se houver erro na comunicação com a API
+     */
+    public void enviarCancelamento(AppointmentsEntity appointment) {
+        String url = WHATSAPP_BASE_URL + CANCELAMENTO_ENDPOINT;
+
+        String telefoneNormalizado = normalizarTelefone(appointment.getUserPhone());
+        String servicosNomes = concatenarNomesServicos(appointment);
+
+        Whats dto = buildCancelamentoDto(appointment, telefoneNormalizado, servicosNomes);
+
+        try {
+            restTemplate.postForEntity(url, dto, String.class);
+            log.info("Mensagem de cancelamento enviada com sucesso para {}", appointment.getUserName());
+        } catch (Exception e) {
+            log.error("Erro ao enviar mensagem de cancelamento: {}", e.getMessage());
+            throw e;
+        }
+    }
+
+    /**
      * Normaliza número de telefone removendo o prefixo '+' se presente.
      *
      * @param telefone Telefone original (ex: "+5511999999999")
@@ -99,6 +123,21 @@ public class WhatsappService {
         dto.setData(appointment.getDate().format(DATE_FORMATTER));
         dto.setHora(appointment.getStartTime().format(TIME_FORMATTER));
         dto.setServico(servicos);
+        dto.setClienteId(appointment.getTenantId());
+        return dto;
+    }
+
+    /**
+     * Constrói DTO de cancelamento a partir do agendamento.
+     */
+    private Whats buildCancelamentoDto(AppointmentsEntity appointment, String telefone, String servicos) {
+        Whats dto = new Whats();
+        dto.setTelefone(telefone);
+        dto.setNome(appointment.getUserName());
+        dto.setData(appointment.getDate().format(DATE_FORMATTER));
+        dto.setHora(appointment.getStartTime().format(TIME_FORMATTER));
+        dto.setServico(servicos);
+        dto.setClienteId(appointment.getTenantId());
         return dto;
     }
 }
