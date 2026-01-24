@@ -1,8 +1,11 @@
 package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.config.TenantContext;
+    import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
+import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
+import lash_salao_kc.agendamento_back.repository.ProfessionalRepository;
 import lash_salao_kc.agendamento_back.repository.TenantWorkingHoursRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +27,8 @@ import java.util.UUID;
 public class TenantWorkingHoursService {
 
     private final TenantWorkingHoursRepository workingHoursRepository;
+    private final ProfessionalRepository professionalRepository;
+    private final TenantService tenantService;
 
     // Horários padrão caso o tenant não tenha configuração específica
     private static final LocalTime DEFAULT_START_TIME = LocalTime.of(9, 0);
@@ -80,6 +86,32 @@ public class TenantWorkingHoursService {
     }
 
     /**
+     * Busca ou cria o primeiro profissional de um tenant.
+     * Necessário porque TenantWorkingHours precisa estar associado a um professional.
+     */
+    private ProfessionalEntity getOrCreateProfessionalForTenant(String tenantId) {
+        TenantEntity tenant = tenantService.getTenantByKey(tenantId);
+
+        // Busca profissionais existentes do tenant
+        List<ProfessionalEntity> professionals = professionalRepository.findByTenantId(tenant.getId());
+
+        if (!professionals.isEmpty()) {
+            return professionals.getFirst(); // Retorna o primeiro profissional
+        }
+
+        // Se não existe nenhum profissional, cria um profissional padrão
+        log.warn("Tenant {} não possui profissionais. Criando profissional padrão.", tenantId);
+        ProfessionalEntity professional = new ProfessionalEntity();
+        professional.setTenant(tenant);
+        professional.setProfessionalName("Profissional Padrão - " + tenant.getBusinessName());
+        professional.setProfessionalEmail(tenant.getContactEmail() != null ? tenant.getContactEmail() : "contato@" + tenantId + ".com");
+        professional.setProfessionalPhone(tenant.getContactPhone() != null ? tenant.getContactPhone() : "00000000000");
+        professional.setActive(true);
+
+        return professionalRepository.save(professional);
+    }
+
+    /**
      * Configura ou atualiza o horário de trabalho de um tenant.
      *
      * @param startTime           Horário de início
@@ -110,13 +142,17 @@ public class TenantWorkingHoursService {
             return workingHoursRepository.save(workingHours);
         } else {
             // Cria nova configuração
+            // Busca ou cria um profissional para associar ao working hours
+            ProfessionalEntity professional = getOrCreateProfessionalForTenant(tenantId);
+
             TenantWorkingHoursEntity workingHours = new TenantWorkingHoursEntity();
             workingHours.setTenantId(tenantId);
+            workingHours.setProfessional(professional);
             workingHours.setStartTime(startTime);
             workingHours.setEndTime(endTime);
             workingHours.setSlotIntervalMinutes(slotIntervalMinutes);
             workingHours.setActive(true);
-            log.info("Criando horário de trabalho para tenant {}", tenantId);
+            log.info("Criando horário de trabalho para tenant {} com profissional {}", tenantId, professional.getId());
             return workingHoursRepository.save(workingHours);
         }
     }
