@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
-        log.error("Erro de runtime: {}", ex.getMessage());
+        log.error("Erro de runtime: {}", ex.getMessage(), ex);
 
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
