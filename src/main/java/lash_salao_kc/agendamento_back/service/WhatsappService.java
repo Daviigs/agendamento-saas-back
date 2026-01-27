@@ -55,8 +55,10 @@ public class WhatsappService {
 
         String telefoneNormalizado = normalizarTelefone(appointment.getUserPhone());
         String servicosNomes = concatenarNomesServicos(appointment);
+        double valorTotal = calcularValorTotal(appointment);
+        String valorFormatado = formatarMoeda(valorTotal);
 
-        Whats dto = buildReminderDto(appointment, telefoneNormalizado, servicosNomes);
+        Whats dto = buildReminderDto(appointment, telefoneNormalizado, servicosNomes, valorFormatado);
 
         try {
             restTemplate.postForEntity(url, dto, String.class);
@@ -78,8 +80,10 @@ public class WhatsappService {
 
         String telefoneNormalizado = normalizarTelefone(appointment.getUserPhone());
         String servicosNomes = concatenarNomesServicos(appointment);
+        double valorTotal = calcularValorTotal(appointment);
+        String valorFormatado = formatarMoeda(valorTotal);
 
-        Whats dto = buildCancelamentoDto(appointment, telefoneNormalizado, servicosNomes);
+        Whats dto = buildCancelamentoDto(appointment, telefoneNormalizado, servicosNomes, valorFormatado);
 
         try {
             restTemplate.postForEntity(url, dto, String.class);
@@ -114,9 +118,31 @@ public class WhatsappService {
     }
 
     /**
+     * Calcula o valor total dos serviços de um agendamento.
+     *
+     * @param appointment Agendamento com lista de serviços
+     * @return Valor total em reais
+     */
+    private double calcularValorTotal(AppointmentsEntity appointment) {
+        return appointment.getServices().stream()
+                .mapToDouble(service -> service.getPrice())
+                .sum();
+    }
+
+    /**
+     * Formata valor monetário no padrão brasileiro (R$ XX,XX).
+     *
+     * @param value Valor a ser formatado
+     * @return String formatada no padrão brasileiro
+     */
+    private String formatarMoeda(double value) {
+        return String.format("R$ %.2f", value).replace(".", ",");
+    }
+
+    /**
      * Constrói DTO de lembrete a partir do agendamento.
      */
-    private Whats buildReminderDto(AppointmentsEntity appointment, String telefone, String servicos) {
+    private Whats buildReminderDto(AppointmentsEntity appointment, String telefone, String servicos, String valor) {
         Whats dto = new Whats();
         dto.setTelefone(telefone);
         dto.setNome(appointment.getUserName());
@@ -124,13 +150,14 @@ public class WhatsappService {
         dto.setHora(appointment.getStartTime().format(TIME_FORMATTER));
         dto.setServico(servicos);
         dto.setClienteId(appointment.getTenantId());
+        dto.setValor(valor);
         return dto;
     }
 
     /**
      * Constrói DTO de cancelamento a partir do agendamento.
      */
-    private Whats buildCancelamentoDto(AppointmentsEntity appointment, String telefone, String servicos) {
+    private Whats buildCancelamentoDto(AppointmentsEntity appointment, String telefone, String servicos, String valor) {
         Whats dto = new Whats();
         dto.setTelefone(telefone);
         dto.setNome(appointment.getUserName());
@@ -138,6 +165,7 @@ public class WhatsappService {
         dto.setHora(appointment.getStartTime().format(TIME_FORMATTER));
         dto.setServico(servicos);
         dto.setClienteId(appointment.getTenantId());
+        dto.setValor(valor);
         return dto;
     }
 }

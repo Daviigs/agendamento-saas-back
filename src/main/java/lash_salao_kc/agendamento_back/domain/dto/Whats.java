@@ -1,6 +1,6 @@
 package lash_salao_kc.agendamento_back.domain.dto;
 
-import lombok.AllArgsConstructor;
+    import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -18,4 +18,5 @@ public class Whats {
     private String hora;
     private String servico;
     private String clienteId;
+    private String valor;
 }

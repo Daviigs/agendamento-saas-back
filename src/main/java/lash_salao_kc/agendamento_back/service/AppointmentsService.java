@@ -284,6 +284,22 @@ public class AppointmentsService {
     }
 
     /**
+     * Calcula o valor total em reais de múltiplos serviços.
+     */
+    private double calculateTotalValue(List<ServicesEntity> services) {
+        return services.stream()
+                .mapToDouble(ServicesEntity::getPrice)
+                .sum();
+    }
+
+    /**
+     * Formata valor monetário no padrão brasileiro (R$ XX,XX).
+     */
+    private String formatCurrency(double value) {
+        return String.format("R$ %.2f", value).replace(".", ",");
+    }
+
+    /**
      * Constrói a entidade de agendamento com todos os dados necessários.
      */
     private AppointmentsEntity buildAppointment(
@@ -321,6 +337,8 @@ public class AppointmentsService {
         try {
             String telefoneParaWhatsapp = normalizePhoneNumber(appointment.getUserPhone());
             String servicosNomes = concatenateServiceNames(services);
+            double totalValue = calculateTotalValue(services);
+            String valorFormatado = formatCurrency(totalValue);
 
             Whats whatsDto = buildWhatsappDto(
                     telefoneParaWhatsapp,
@@ -328,7 +346,8 @@ public class AppointmentsService {
                     appointment.getDate(),
                     appointment.getStartTime(),
                     servicosNomes,
-                    clienteId
+                    clienteId,
+                    valorFormatado
             );
 
             log.info("Enviando mensagem WhatsApp para: {} (clienteId: {})",
@@ -366,7 +385,8 @@ public class AppointmentsService {
             LocalDate date,
             LocalTime time,
             String servico,
-            String clienteId) {
+            String clienteId,
+            String valor) {
 
         Whats whatsDto = new Whats();
         whatsDto.setTelefone(telefone);
@@ -375,6 +395,7 @@ public class AppointmentsService {
         whatsDto.setHora(time.format(TIME_FORMATTER));
         whatsDto.setServico(servico);
         whatsDto.setClienteId(clienteId.toLowerCase());
+        whatsDto.setValor(valor);
 
         return whatsDto;
     }
