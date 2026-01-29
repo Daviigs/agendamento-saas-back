@@ -44,6 +44,7 @@ public class AppointmentsService {
     private final BlockedTimeSlotService blockedTimeSlotService;
     private final ProfessionalRepository professionalRepository;
     private final TenantRepository tenantRepository;
+    private final ProfessionalServiceService professionalServiceService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
@@ -213,6 +214,10 @@ public class AppointmentsService {
         validateDateNotBlocked(date);
 
         List<ServicesEntity> services = fetchServices(serviceIds);
+
+        // NOVA REGRA: Valida se o profissional executa TODOS os serviços
+        validateProfessionalExecutesServices(professionalId, serviceIds);
+
         int totalDuration = calculateTotalDuration(services);
         LocalTime endTime = startTime.plusMinutes(totalDuration);
 
@@ -241,6 +246,26 @@ public class AppointmentsService {
     private void validateDateNotBlocked(LocalDate date) {
         if (blockedDayService.isDateBlocked(date)) {
             throw new BusinessException("Não é possível agendar nesta data. O salão estará fechado.");
+        }
+    }
+
+    /**
+     * Valida se o profissional executa TODOS os serviços do agendamento.
+     * REGRA DE NEGÓCIO NOVA: Profissionais apenas executam serviços vinculados a eles.
+     *
+     * @param professionalId ID do profissional
+     * @param serviceIds     Lista de IDs dos serviços
+     * @throws BusinessException se o profissional não executar algum serviço
+     */
+    private void validateProfessionalExecutesServices(UUID professionalId, List<UUID> serviceIds) {
+        // Se não há vínculos configurados ainda (sistema legado), permite o agendamento
+        // Isso garante retrocompatibilidade
+        if (!professionalServiceService.professionalExecutesAllServices(professionalId, serviceIds)) {
+            log.warn("Profissional {} não executa todos os serviços solicitados: {}",
+                    professionalId, serviceIds);
+            throw new BusinessException(
+                    "O profissional selecionado não está habilitado para executar todos os serviços deste agendamento. " +
+                    "Por favor, selecione outro profissional ou ajuste os serviços.");
         }
     }
 

@@ -5,6 +5,7 @@ import lash_salao_kc.agendamento_back.domain.dto.CreateProfessionalRequest;
 import lash_salao_kc.agendamento_back.domain.dto.ProfessionalResponse;
 import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.service.ProfessionalService;
+import lash_salao_kc.agendamento_back.service.ProfessionalServiceService;
 import lash_salao_kc.agendamento_back.service.TenantService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Controller REST para gerenciamento de profissionais.
@@ -25,6 +27,7 @@ public class ProfessionalController extends BaseController {
 
     private final ProfessionalService professionalService;
     private final TenantService tenantService;
+    private final ProfessionalServiceService professionalServiceService;
 
     /**
      * Lista todos os profissionais do tenant atual.
@@ -44,9 +47,29 @@ public class ProfessionalController extends BaseController {
      * @return Lista de profissionais ativos (200 OK)
      */
     @GetMapping("/active")
-    public ResponseEntity<List<ProfessionalResponse>> getActiveProfessionals() {
+    public ResponseEntity<List<ProfessionalResponse>> getActiveProfessionals(
+            @RequestParam(required = false) List<UUID> serviceIds) {
+
         TenantEntity tenant = tenantService.getCurrentTenant();
-        List<ProfessionalResponse> professionals = professionalService.getActiveProfessionalsByTenant(tenant.getId());
+
+        // Se serviços foram especificados, filtra profissionais que executam TODOS os serviços
+        if (serviceIds != null && !serviceIds.isEmpty()) {
+            List<UUID> qualifiedProfessionalIds = professionalServiceService
+                    .getProfessionalsByServices(serviceIds, tenant.getId());
+
+            // Busca dados completos dos profissionais qualificados
+            List<ProfessionalResponse> professionals = professionalService
+                    .getActiveProfessionalsByTenant(tenant.getId())
+                    .stream()
+                    .filter(p -> qualifiedProfessionalIds.contains(p.getId()))
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(professionals);
+        }
+
+        // Comportamento original: retorna todos os profissionais ativos
+        List<ProfessionalResponse> professionals = professionalService
+                .getActiveProfessionalsByTenant(tenant.getId());
         return ResponseEntity.ok(professionals);
     }
 
