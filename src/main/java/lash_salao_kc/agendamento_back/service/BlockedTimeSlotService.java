@@ -2,6 +2,7 @@ package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.BlockedTimeSlotEntity;
+import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
 import lash_salao_kc.agendamento_back.exception.DuplicateResourceException;
 import lash_salao_kc.agendamento_back.exception.ResourceNotFoundException;
@@ -28,10 +29,12 @@ public class BlockedTimeSlotService {
 
     private final BlockedTimeSlotRepository blockedTimeSlotRepository;
     private final TenantWorkingHoursService workingHoursService;
+    private final ProfessionalService professionalService;
 
     /**
      * Bloqueia um intervalo de horário em uma data específica.
      *
+     * @param professionalId ID do profissional
      * @param date      Data do bloqueio
      * @param startTime Horário de início do bloqueio
      * @param endTime   Horário de término do bloqueio
@@ -42,6 +45,7 @@ public class BlockedTimeSlotService {
      */
     @Transactional
     public BlockedTimeSlotEntity blockSpecificTimeSlot(
+            UUID professionalId,
             LocalDate date,
             LocalTime startTime,
             LocalTime endTime,
@@ -49,12 +53,16 @@ public class BlockedTimeSlotService {
 
         String tenantId = TenantContext.getTenantId();
 
+        // Busca e valida o profissional
+        ProfessionalEntity professional = professionalService.getProfessionalById(professionalId);
+
         validateTimeInterval(startTime, endTime);
         validateWithinWorkingHours(startTime, endTime, tenantId);
         validateNoConflictOnSpecificDate(tenantId, date, startTime, endTime);
 
         BlockedTimeSlotEntity blockedSlot = new BlockedTimeSlotEntity();
         blockedSlot.setTenantId(tenantId);
+        blockedSlot.setProfessional(professional);
         blockedSlot.setSpecificDate(date);
         blockedSlot.setStartTime(startTime);
         blockedSlot.setEndTime(endTime);
@@ -62,8 +70,8 @@ public class BlockedTimeSlotService {
         blockedSlot.setRecurring(false);
         blockedSlot.setDayOfWeek(null);
 
-        log.info("Bloqueando horário específico: {} de {} às {} - Motivo: {}",
-                date, startTime, endTime, reason);
+        log.info("Bloqueando horário específico: {} de {} às {} - Motivo: {} - Profissional: {}",
+                date, startTime, endTime, reason, professional.getProfessionalName());
 
         return blockedTimeSlotRepository.save(blockedSlot);
     }
@@ -71,6 +79,7 @@ public class BlockedTimeSlotService {
     /**
      * Bloqueia um intervalo de horário de forma recorrente em um dia da semana.
      *
+     * @param professionalId ID do profissional
      * @param dayOfWeek Dia da semana
      * @param startTime Horário de início do bloqueio
      * @param endTime   Horário de término do bloqueio
@@ -81,6 +90,7 @@ public class BlockedTimeSlotService {
      */
     @Transactional
     public BlockedTimeSlotEntity blockRecurringTimeSlot(
+            UUID professionalId,
             DayOfWeek dayOfWeek,
             LocalTime startTime,
             LocalTime endTime,
@@ -88,12 +98,16 @@ public class BlockedTimeSlotService {
 
         String tenantId = TenantContext.getTenantId();
 
+        // Busca e valida o profissional
+        ProfessionalEntity professional = professionalService.getProfessionalById(professionalId);
+
         validateTimeInterval(startTime, endTime);
         validateWithinWorkingHours(startTime, endTime, tenantId);
         validateNoConflictOnRecurringDay(tenantId, dayOfWeek, startTime, endTime);
 
         BlockedTimeSlotEntity blockedSlot = new BlockedTimeSlotEntity();
         blockedSlot.setTenantId(tenantId);
+        blockedSlot.setProfessional(professional);
         blockedSlot.setDayOfWeek(dayOfWeek);
         blockedSlot.setStartTime(startTime);
         blockedSlot.setEndTime(endTime);
@@ -101,8 +115,8 @@ public class BlockedTimeSlotService {
         blockedSlot.setRecurring(true);
         blockedSlot.setSpecificDate(null);
 
-        log.info("Bloqueando horário recorrente: {} de {} às {} - Motivo: {}",
-                dayOfWeek, startTime, endTime, reason);
+        log.info("Bloqueando horário recorrente: {} de {} às {} - Motivo: {} - Profissional: {}",
+                dayOfWeek, startTime, endTime, reason, professional.getProfessionalName());
 
         return blockedTimeSlotRepository.save(blockedSlot);
     }

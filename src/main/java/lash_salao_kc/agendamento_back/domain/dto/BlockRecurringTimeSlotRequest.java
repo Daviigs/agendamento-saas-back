@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.UUID;
 
 /**
  * DTO para bloqueio recorrente de intervalo de horário em um dia da semana.
@@ -15,6 +16,9 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BlockRecurringTimeSlotRequest {
+
+    @NotNull(message = "ID do profissional é obrigatório")
+    private UUID professionalId;
 
     @NotNull(message = "Dia da semana é obrigatório")
     private DayOfWeek dayOfWeek;

@@ -1,12 +1,18 @@
-package lash_salao_kc.agendamento_back.service;
+package lash_salao_kc.agendamento_back;
 
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.BlockedTimeSlotEntity;
+import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
 import lash_salao_kc.agendamento_back.repository.AppointmentsRepository;
 import lash_salao_kc.agendamento_back.repository.BlockedTimeSlotRepository;
 import lash_salao_kc.agendamento_back.repository.TenantWorkingHoursRepository;
+import lash_salao_kc.agendamento_back.service.AvailableTimeSlotsService;
+import lash_salao_kc.agendamento_back.service.BlockedDayService;
+import lash_salao_kc.agendamento_back.service.BlockedTimeSlotService;
+import lash_salao_kc.agendamento_back.service.ProfessionalService;
+import lash_salao_kc.agendamento_back.service.TenantWorkingHoursService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +26,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +49,9 @@ class AdvancedBlockingSystemTest {
 
     @Mock
     private BlockedDayService blockedDayService;
+
+    @Mock
+    private ProfessionalService professionalService;
 
     @InjectMocks
     private TenantWorkingHoursService workingHoursService;
@@ -101,10 +111,15 @@ class AdvancedBlockingSystemTest {
     @Test
     void testBlockSpecificTimeSlot_Success() {
         // Arrange
+        UUID professionalId = UUID.randomUUID();
         LocalDate date = LocalDate.of(2026, 1, 25);
         LocalTime startTime = LocalTime.of(14, 0);
         LocalTime endTime = LocalTime.of(16, 0);
         String reason = "Reunião";
+
+        ProfessionalEntity professional = new ProfessionalEntity();
+        professional.setId(professionalId);
+        professional.setProfessionalName("Test Professional");
 
         TenantWorkingHoursEntity workingHours = new TenantWorkingHoursEntity();
         workingHours.setTenantId(TEST_TENANT_ID);
@@ -112,6 +127,8 @@ class AdvancedBlockingSystemTest {
         workingHours.setEndTime(LocalTime.of(18, 0));
         workingHours.setSlotIntervalMinutes(30);
 
+        when(professionalService.getProfessionalById(professionalId))
+                .thenReturn(professional);
         when(workingHoursRepository.findByTenantId(TEST_TENANT_ID))
                 .thenReturn(Optional.of(workingHours));
         when(blockedTimeSlotRepository.findConflictingBlocksOnSpecificDate(
@@ -122,12 +139,13 @@ class AdvancedBlockingSystemTest {
 
         // Act
         BlockedTimeSlotEntity result = blockedTimeSlotService.blockSpecificTimeSlot(
-                date, startTime, endTime, reason
+                professionalId, date, startTime, endTime, reason
         );
 
         // Assert
         assertNotNull(result);
         assertEquals(TEST_TENANT_ID, result.getTenantId());
+        assertEquals(professional, result.getProfessional());
         assertEquals(date, result.getSpecificDate());
         assertEquals(startTime, result.getStartTime());
         assertEquals(endTime, result.getEndTime());
@@ -139,10 +157,15 @@ class AdvancedBlockingSystemTest {
     @Test
     void testBlockRecurringTimeSlot_Success() {
         // Arrange
+        UUID professionalId = UUID.randomUUID();
         DayOfWeek dayOfWeek = DayOfWeek.MONDAY;
         LocalTime startTime = LocalTime.of(12, 0);
         LocalTime endTime = LocalTime.of(13, 0);
         String reason = "Almoço recorrente";
+
+        ProfessionalEntity professional = new ProfessionalEntity();
+        professional.setId(professionalId);
+        professional.setProfessionalName("Test Professional");
 
         TenantWorkingHoursEntity workingHours = new TenantWorkingHoursEntity();
         workingHours.setTenantId(TEST_TENANT_ID);
@@ -150,6 +173,8 @@ class AdvancedBlockingSystemTest {
         workingHours.setEndTime(LocalTime.of(18, 0));
         workingHours.setSlotIntervalMinutes(30);
 
+        when(professionalService.getProfessionalById(professionalId))
+                .thenReturn(professional);
         when(workingHoursRepository.findByTenantId(TEST_TENANT_ID))
                 .thenReturn(Optional.of(workingHours));
         when(blockedTimeSlotRepository.findConflictingRecurringBlocks(
@@ -160,12 +185,13 @@ class AdvancedBlockingSystemTest {
 
         // Act
         BlockedTimeSlotEntity result = blockedTimeSlotService.blockRecurringTimeSlot(
-                dayOfWeek, startTime, endTime, reason
+                professionalId, dayOfWeek, startTime, endTime, reason
         );
 
         // Assert
         assertNotNull(result);
         assertEquals(TEST_TENANT_ID, result.getTenantId());
+        assertEquals(professional, result.getProfessional());
         assertEquals(dayOfWeek, result.getDayOfWeek());
         assertEquals(startTime, result.getStartTime());
         assertEquals(endTime, result.getEndTime());

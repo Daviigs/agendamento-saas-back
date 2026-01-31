@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.UUID;
 
 /**
  * DTO para bloqueio de intervalo de horário em uma data específica.
@@ -15,6 +16,9 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BlockSpecificTimeSlotRequest {
+
+    @NotNull(message = "ID do profissional é obrigatório")
+    private UUID professionalId;
 
     @NotNull(message = "Data é obrigatória")
     private LocalDate date;

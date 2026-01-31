@@ -37,6 +37,7 @@ public class BlockedTimeSlotController extends BaseController {
             @Valid @RequestBody BlockSpecificTimeSlotRequest request) {
 
         BlockedTimeSlotEntity blockedSlot = blockedTimeSlotService.blockSpecificTimeSlot(
+                request.getProfessionalId(),
                 request.getDate(),
                 request.getStartTime(),
                 request.getEndTime(),
@@ -57,6 +58,7 @@ public class BlockedTimeSlotController extends BaseController {
             @Valid @RequestBody BlockRecurringTimeSlotRequest request) {
 
         BlockedTimeSlotEntity blockedSlot = blockedTimeSlotService.blockRecurringTimeSlot(
+                request.getProfessionalId(),
                 request.getDayOfWeek(),
                 request.getStartTime(),
                 request.getEndTime(),
