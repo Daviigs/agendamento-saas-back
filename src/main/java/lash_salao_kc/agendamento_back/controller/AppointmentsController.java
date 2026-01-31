@@ -62,17 +62,20 @@ public class AppointmentsController extends BaseController {
 
     /**
      * Retorna horários disponíveis para agendamento de um profissional em uma data específica.
+     * Considera a duração dos serviços selecionados e bloqueios de horário.
      *
      * @param professionalId ID do profissional
      * @param date Data para consulta
+     * @param serviceIds Lista de IDs dos serviços (opcional - se não informado, retorna todos os slots)
      * @return Lista de horários disponíveis (200 OK)
      */
     @GetMapping("/available-slots")
     public ResponseEntity<List<LocalTime>> getAvailableSlots(
             @RequestParam UUID professionalId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) List<UUID> serviceIds) {
 
-        List<LocalTime> availableSlots = appointmentsService.getAvailableTimeSlots(professionalId, date);
+        List<LocalTime> availableSlots = appointmentsService.getAvailableTimeSlots(professionalId, date, serviceIds);
         return ResponseEntity.ok(availableSlots);
     }
 

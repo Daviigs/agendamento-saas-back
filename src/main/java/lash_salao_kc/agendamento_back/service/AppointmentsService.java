@@ -57,12 +57,14 @@ public class AppointmentsService {
      * - Bloqueios recorrentes do profissional
      * - Bloqueios de dia inteiro
      * - Agendamentos existentes do profissional
+     * - Duração dos serviços selecionados (se informados)
      *
      * @param professionalId ID do profissional
      * @param date Data para consulta de horários disponíveis
+     * @param serviceIds Lista de IDs dos serviços (opcional)
      * @return Lista de horários disponíveis
      */
-    public List<LocalTime> getAvailableTimeSlots(UUID professionalId, LocalDate date) {
+    public List<LocalTime> getAvailableTimeSlots(UUID professionalId, LocalDate date, List<UUID> serviceIds) {
         String tenantId = TenantContext.getTenantId();
 
         // Valida tenant
@@ -76,7 +78,7 @@ public class AppointmentsService {
                 .orElseThrow(() -> new BusinessException(
                         "Profissional não encontrado, inativo ou não pertence ao tenant"));
 
-        return availableTimeSlotsService.getAvailableTimeSlotsForProfessional(professionalId, date);
+        return availableTimeSlotsService.getAvailableTimeSlotsForProfessional(professionalId, date, serviceIds);
     }
 
     /**

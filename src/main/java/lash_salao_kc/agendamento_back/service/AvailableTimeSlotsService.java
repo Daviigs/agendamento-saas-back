@@ -3,10 +3,8 @@ package lash_salao_kc.agendamento_back.service;
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
 import lash_salao_kc.agendamento_back.domain.entity.BlockedTimeSlotEntity;
-import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import lash_salao_kc.agendamento_back.repository.AppointmentsRepository;
-import lash_salao_kc.agendamento_back.repository.ProfessionalRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,17 +34,20 @@ public class AvailableTimeSlotsService {
     private final BlockedTimeSlotService blockedTimeSlotService;
     private final BlockedDayService blockedDayService;
     private final AppointmentsRepository appointmentsRepository;
-    private final ProfessionalRepository professionalRepository;
+    private final ServicesService servicesService;
 
     /**
      * Retorna todos os horários disponíveis para agendamento de um profissional específico.
+     * Considera a duração dos serviços selecionados e bloqueios de horário.
      *
      * @param professionalId ID do profissional
      * @param date Data para consulta
+     * @param serviceIds Lista de IDs dos serviços (opcional)
      * @return Lista de horários disponíveis
      */
-    public List<LocalTime> getAvailableTimeSlotsForProfessional(UUID professionalId, LocalDate date) {
-        log.info("Calculando horários disponíveis para profissional {} na data {}", professionalId, date);
+    public List<LocalTime> getAvailableTimeSlotsForProfessional(UUID professionalId, LocalDate date, List<UUID> serviceIds) {
+        log.info("Calculando horários disponíveis para profissional {} na data {} com serviços: {}",
+                professionalId, date, serviceIds);
 
         // Verifica se o dia inteiro está bloqueado
         if (blockedDayService.isDateBlocked(date)) {
@@ -54,12 +55,15 @@ public class AvailableTimeSlotsService {
             return new ArrayList<>();
         }
 
-        // Busca o profissional (já validado anteriormente no AppointmentsService)
-        ProfessionalEntity professional = professionalRepository.findById(professionalId)
-                .orElseThrow(() -> new RuntimeException("Profissional não encontrado"));
-
         // Obtém horário de trabalho do profissional
         TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHoursByProfessional(professionalId);
+
+        // Calcula duração total dos serviços (se fornecidos)
+        int totalDuration = 0;
+        if (serviceIds != null && !serviceIds.isEmpty()) {
+            totalDuration = calculateServicesDuration(serviceIds);
+            log.info("Duração total dos serviços: {} minutos", totalDuration);
+        }
 
         // Gera todos os slots possíveis baseado no horário de trabalho
         List<LocalTime> allPossibleSlots = generateAllTimeSlots(workingHours);
@@ -68,20 +72,55 @@ public class AvailableTimeSlotsService {
         List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService
                 .getBlockedTimeSlotsForProfessionalAndDate(professionalId, date);
 
+        log.info("Bloqueios encontrados para a data: {}", blockedSlots.size());
+        blockedSlots.forEach(block ->
+            log.info("  - Bloqueio: {} até {}", block.getStartTime(), block.getEndTime()));
+
         // Obtém agendamentos existentes deste profissional na data
         List<AppointmentsEntity> appointments = appointmentsRepository
                 .findByProfessionalIdAndDate(professionalId, date);
 
+        log.info("Agendamentos existentes: {}", appointments.size());
+
         // Filtra slots disponíveis
+        final int serviceDuration = totalDuration;
+        log.info("Iniciando filtragem de {} slots possíveis (duração do serviço: {} min)",
+                allPossibleSlots.size(), serviceDuration);
+
         List<LocalTime> availableSlots = allPossibleSlots.stream()
                 .filter(slot -> !isSlotBlocked(slot, blockedSlots))
                 .filter(slot -> !isSlotOccupiedByAppointment(slot, appointments))
+                // NOVA REGRA: Se serviços foram informados, verifica se o horário final não ultrapassa bloqueios
+                .filter(slot -> {
+                    if (serviceDuration > 0) {
+                        boolean wouldConflict = wouldEndTimeConflictWithBlockedSlots(slot, serviceDuration, blockedSlots, workingHours);
+                        if (wouldConflict) {
+                            log.info("  ❌ Slot {} removido (terminaria em conflito com bloqueio)", slot);
+                        } else {
+                            log.debug("  ✅ Slot {} OK (termina às {})", slot, slot.plusMinutes(serviceDuration));
+                        }
+                        return !wouldConflict;
+                    }
+                    return true;
+                })
                 .collect(Collectors.toList());
 
         log.info("Encontrados {} horários disponíveis de {} possíveis para profissional {}",
                 availableSlots.size(), allPossibleSlots.size(), professionalId);
 
         return availableSlots;
+    }
+
+    /**
+     * Retorna todos os horários disponíveis para agendamento de um profissional específico.
+     * Método de compatibilidade sem serviceIds.
+     *
+     * @param professionalId ID do profissional
+     * @param date Data para consulta
+     * @return Lista de horários disponíveis
+     */
+    public List<LocalTime> getAvailableTimeSlotsForProfessional(UUID professionalId, LocalDate date) {
+        return getAvailableTimeSlotsForProfessional(professionalId, date, null);
     }
 
     /**
@@ -319,5 +358,74 @@ public class AvailableTimeSlotsService {
             return (double) getOccupiedSlots() / totalSlots * 100;
         }
     }
+
+    /**
+     * Calcula a duração total dos serviços em minutos.
+     *
+     * @param serviceIds Lista de IDs dos serviços
+     * @return Duração total em minutos
+     */
+    private int calculateServicesDuration(List<UUID> serviceIds) {
+        int totalDuration = 0;
+        for (UUID serviceId : serviceIds) {
+            try {
+                var service = servicesService.findById(serviceId);
+                totalDuration += service.getDuration();
+            } catch (Exception e) {
+                log.warn("Erro ao buscar serviço {}: {}", serviceId, e.getMessage());
+            }
+        }
+        return totalDuration;
+    }
+
+    /**
+     * Verifica se o horário de término do atendimento (slot + duração) ultrapassaria ou coincidiria
+     * com um horário bloqueado.
+     *
+     * REGRA DE NEGÓCIO: Não deve exibir horários de início cujo horário final do atendimento
+     * ultrapasse ou coincida com um horário bloqueado.
+     *
+     * @param slot Horário de início proposto
+     * @param duration Duração do serviço em minutos
+     * @param blockedSlots Lista de bloqueios ativos
+     * @param workingHours Horário de trabalho
+     * @return true se haveria conflito (horário não deve ser exibido)
+     */
+    private boolean wouldEndTimeConflictWithBlockedSlots(
+            LocalTime slot,
+            int duration,
+            List<BlockedTimeSlotEntity> blockedSlots,
+            TenantWorkingHoursEntity workingHours) {
+
+        LocalTime endTime = slot.plusMinutes(duration);
+
+        // Verifica se o horário de término ultrapassa o horário de trabalho
+        if (endTime.isAfter(workingHours.getEndTime())) {
+            log.debug("Horário {} + {} min resultaria em término após o expediente", slot, duration);
+            return true;
+        }
+
+        // Verifica se o horário de término coincide ou ultrapassa algum bloqueio
+        for (BlockedTimeSlotEntity block : blockedSlots) {
+            LocalTime blockStart = block.getStartTime();
+            LocalTime blockEnd = block.getEndTime();
+
+            // REGRA PRINCIPAL: Se o horário de término (slot + duração) for >= ao início do bloqueio
+            // E o slot de início for < fim do bloqueio, então há conflito
+            // Isso cobre todos os casos:
+            // 1. Término coincide com início do bloqueio (ex: 11:30 + 30min = 12:00, bloqueio às 12:00)
+            // 2. Término ultrapassa início do bloqueio (ex: 11:30 + 50min = 12:20, bloqueio às 12:00)
+            // 3. Atendimento atravessa o bloqueio (ex: 11:00 + 100min = 12:40, bloqueio 12:00-13:00)
+
+            if (!endTime.isBefore(blockStart) && slot.isBefore(blockEnd)) {
+                log.debug("❌ BLOQUEADO: Slot {} + {} min terminaria às {} (bloqueio: {} - {})",
+                        slot, duration, endTime, blockStart, blockEnd);
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
+
 
