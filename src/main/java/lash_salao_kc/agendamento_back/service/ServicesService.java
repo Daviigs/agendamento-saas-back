@@ -3,6 +3,7 @@ package lash_salao_kc.agendamento_back.service;
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
 import lash_salao_kc.agendamento_back.exception.ResourceNotFoundException;
+import lash_salao_kc.agendamento_back.repository.ProfessionalServiceRepository;
 import lash_salao_kc.agendamento_back.repository.ServicesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class ServicesService {
 
     private final ServicesRepository servicesRepository;
+    private final ProfessionalServiceRepository professionalServicesRepository;
 
     /**
      * Salva um novo serviço no sistema.
@@ -87,6 +89,7 @@ public class ServicesService {
     @Transactional
     public void deleteService(UUID id) {
         ServicesEntity service = findById(id);
+        professionalServicesRepository.deleteByServiceId(id);
         servicesRepository.delete(service);
     }
 }

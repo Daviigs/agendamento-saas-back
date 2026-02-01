@@ -66,7 +66,6 @@ public interface ProfessionalServiceRepository extends JpaRepository<Professiona
      * @param serviceId ID do serviço
      */
     @Modifying
-    @Query("DELETE FROM ProfessionalServiceEntity ps WHERE ps.service.id = :serviceId")
     void deleteByServiceId(@Param("serviceId") UUID serviceId);
 
     /**

@@ -3,11 +3,14 @@ package lash_salao_kc.agendamento_back.domain.entity;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lash_salao_kc.agendamento_back.service.ProfessionalServiceService;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /**
