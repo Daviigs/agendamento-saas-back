@@ -42,6 +42,7 @@ public class AppointmentsService {
     private final ProfessionalRepository professionalRepository;
     private final TenantRepository tenantRepository;
     private final ProfessionalServiceService professionalServiceService;
+    private final TenantDateTimeService tenantDateTimeService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
@@ -210,6 +211,9 @@ public class AppointmentsService {
                 .orElseThrow(() -> new BusinessException(
                         "Profissional não encontrado, inativo ou não pertence ao tenant"));
 
+        // VALIDAÇÃO: Impede agendamentos no passado
+        validateNotInPast(date, startTime, clienteId);
+
         validateDateNotBlocked(date);
 
         List<ServicesEntity> services = fetchServices(serviceIds);
@@ -245,6 +249,32 @@ public class AppointmentsService {
     private void validateDateNotBlocked(LocalDate date) {
         if (blockedDayService.isDateBlocked(date)) {
             throw new BusinessException("Não é possível agendar nesta data. O salão estará fechado.");
+        }
+    }
+
+    /**
+     * Valida se a data e horário do agendamento não estão no passado.
+     *
+     * REGRA DE NEGÓCIO:
+     * - Data no passado: sempre rejeita
+     * - Data atual com horário no passado ou igual ao atual: rejeita
+     * - Data futura: sempre permite
+     *
+     * @param date Data do agendamento
+     * @param startTime Horário de início do agendamento
+     * @param tenantId ID do tenant
+     * @throws BusinessException se o agendamento estiver no passado
+     */
+    private void validateNotInPast(LocalDate date, LocalTime startTime, String tenantId) {
+        if (tenantDateTimeService.isInPast(date, startTime, tenantId)) {
+            String appointmentDateTime = date.format(DATE_FORMATTER) + " às " + startTime.format(TIME_FORMATTER);
+            String currentDateTime = tenantDateTimeService.now(tenantId).toLocalDate().format(DATE_FORMATTER) +
+                    " às " + tenantDateTimeService.now(tenantId).toLocalTime().format(TIME_FORMATTER);
+
+            throw new BusinessException(
+                    String.format("Não é possível agendar para um horário que já passou. " +
+                            "Data/hora solicitada: %s, data/hora atual: %s",
+                            appointmentDateTime, currentDateTime));
         }
     }
 

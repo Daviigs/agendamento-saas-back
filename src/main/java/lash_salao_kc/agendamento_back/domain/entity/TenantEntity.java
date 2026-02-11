@@ -70,6 +70,14 @@ public class TenantEntity {
     private Boolean active = true;
 
     /**
+     * Timezone do tenant para cálculos de data/hora.
+     * Usado para determinar horários disponíveis e validar agendamentos no passado.
+     * Padrão: America/Sao_Paulo
+     */
+    @Column(name = "timezone", length = 50)
+    private String timezone = "America/Sao_Paulo";
+
+    /**
      * Data/hora de criação do registro.
      */
     @CreationTimestamp

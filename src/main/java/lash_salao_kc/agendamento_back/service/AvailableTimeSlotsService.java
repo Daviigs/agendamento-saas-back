@@ -35,6 +35,7 @@ public class AvailableTimeSlotsService {
     private final BlockedDayService blockedDayService;
     private final AppointmentsRepository appointmentsRepository;
     private final ServicesService servicesService;
+    private final TenantDateTimeService tenantDateTimeService;
 
     /**
      * Retorna todos os horários disponíveis para agendamento de um profissional específico.
@@ -96,8 +97,13 @@ public class AvailableTimeSlotsService {
         log.info("Iniciando filtragem de {} slots possíveis (duração do serviço: {} min)",
                 allPossibleSlots.size(), serviceDuration);
 
+        // Obtém tenantId do contexto para validação de horários passados
+        String tenantId = TenantContext.getTenantId();
+
         List<LocalTime> availableSlots = allPossibleSlots.stream()
                 .filter(slot -> !isSlotBlocked(slot, blockedSlots))
+                // NOVA VALIDAÇÃO: Remove horários que já passaram (se a data for hoje)
+                .filter(slot -> !isTimeSlotInPast(date, slot, tenantId))
                 // NOVA VALIDAÇÃO: Considera a duração do serviço ao verificar conflitos com agendamentos
                 .filter(slot -> {
                     if (serviceDuration > 0) {
@@ -163,11 +169,10 @@ public class AvailableTimeSlotsService {
      * @return Lista de horários disponíveis
      */
     public List<LocalTime> getAvailableTimeSlots(LocalDate date, String tenantId) {
-        if (tenantId == null) {
-            tenantId = TenantContext.getTenantId();
-        }
+        // Use final variable for lambda compatibility
+        final String finalTenantId = (tenantId == null) ? TenantContext.getTenantId() : tenantId;
 
-        log.info("Calculando horários disponíveis para {} - tenant: {}", date, tenantId);
+        log.info("Calculando horários disponíveis para {} - tenant: {}", date, finalTenantId);
 
         // Verifica se o dia inteiro está bloqueado
         if (blockedDayService.isDateBlocked(date)) {
@@ -176,7 +181,7 @@ public class AvailableTimeSlotsService {
         }
 
         // Obtém horário de trabalho do tenant
-        TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHours(tenantId);
+        TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHours(finalTenantId);
 
         // Log informativo sobre o modo de horário
         boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
@@ -190,11 +195,12 @@ public class AvailableTimeSlotsService {
         List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService.getBlockedTimeSlotsForDate(date);
 
         // Obtém agendamentos existentes na data
-        List<AppointmentsEntity> appointments = appointmentsRepository.findByTenantIdAndDate(tenantId, date);
+        List<AppointmentsEntity> appointments = appointmentsRepository.findByTenantIdAndDate(finalTenantId, date);
 
         // Filtra slots disponíveis
         List<LocalTime> availableSlots = allPossibleSlots.stream()
                 .filter(slot -> !isSlotBlocked(slot, blockedSlots))
+                .filter(slot -> !isTimeSlotInPast(date, slot, finalTenantId))
                 .filter(slot -> !isSlotOccupiedByAppointment(slot, appointments))
                 .collect(Collectors.toList());
 
@@ -248,6 +254,39 @@ public class AvailableTimeSlotsService {
     private boolean isSlotBlocked(LocalTime slot, List<BlockedTimeSlotEntity> blockedSlots) {
         return blockedSlots.stream()
                 .anyMatch(block -> isTimeWithinBlock(slot, block.getStartTime(), block.getEndTime()));
+    }
+
+    /**
+     * Verifica se um horário (slot) está no passado considerando a data e o timezone do tenant.
+     *
+     * REGRAS:
+     * - Se a data for anterior à data atual: retorna true (está no passado)
+     * - Se a data for igual à data atual: retorna true se o horário já passou
+     * - Se a data for futura: retorna false (nunca está no passado)
+     *
+     * @param date Data do slot
+     * @param slot Horário do slot
+     * @param tenantId ID do tenant
+     * @return true se o slot está no passado
+     */
+    private boolean isTimeSlotInPast(LocalDate date, LocalTime slot, String tenantId) {
+        // Verifica se a data está no passado
+        if (tenantDateTimeService.isDateInPast(date, tenantId)) {
+            log.debug("  ⏱️ Slot {} na data {} está no passado (data anterior)", slot, date);
+            return true;
+        }
+
+        // Se a data é hoje, verifica se o horário já passou
+        if (tenantDateTimeService.isToday(date, tenantId)) {
+            boolean isPast = tenantDateTimeService.isInPast(date, slot, tenantId);
+            if (isPast) {
+                log.debug("  ⏱️ Slot {} na data {} está no passado (horário já passou)", slot, date);
+            }
+            return isPast;
+        }
+
+        // Data futura: nunca está no passado
+        return false;
     }
 
     /**
