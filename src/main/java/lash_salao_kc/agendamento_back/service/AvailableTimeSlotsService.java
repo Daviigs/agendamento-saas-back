@@ -40,6 +40,10 @@ public class AvailableTimeSlotsService {
      * Retorna todos os horários disponíveis para agendamento de um profissional específico.
      * Considera a duração dos serviços selecionados e bloqueios de horário.
      *
+     * A flag horarioFlexivel determina o comportamento:
+     * - false (Rígido): Descarta horários cujo término ultrapassaria bloqueios ou horário final
+     * - true (Flexível): Permite que o término ultrapasse bloqueios e horário final
+     *
      * @param professionalId ID do profissional
      * @param date Data para consulta
      * @param serviceIds Lista de IDs dos serviços (opcional)
@@ -57,6 +61,11 @@ public class AvailableTimeSlotsService {
 
         // Obtém horário de trabalho do profissional
         TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHoursByProfessional(professionalId);
+
+        // Log informativo sobre o modo de horário
+        boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
+        log.info("Modo de horário do profissional {}: {} (horarioFlexivel={})",
+                professionalId, isFlexible ? "FLEXÍVEL" : "RÍGIDO", isFlexible);
 
         // Calcula duração total dos serviços (se fornecidos)
         int totalDuration = 0;
@@ -89,13 +98,29 @@ public class AvailableTimeSlotsService {
 
         List<LocalTime> availableSlots = allPossibleSlots.stream()
                 .filter(slot -> !isSlotBlocked(slot, blockedSlots))
-                .filter(slot -> !isSlotOccupiedByAppointment(slot, appointments))
-                // NOVA REGRA: Se serviços foram informados, verifica se o horário final não ultrapassa bloqueios
+                // NOVA VALIDAÇÃO: Considera a duração do serviço ao verificar conflitos com agendamentos
+                .filter(slot -> {
+                    if (serviceDuration > 0) {
+                        // Verifica se o novo agendamento (slot + duração) conflitaria com agendamentos existentes
+                        boolean wouldConflictWithExisting = wouldConflictWithAppointments(slot, serviceDuration, appointments);
+                        if (wouldConflictWithExisting) {
+                            log.debug("  ❌ Slot {} removido (conflitaria com agendamento existente)", slot);
+                            return false;
+                        }
+                    } else {
+                        // Sem duração, usa validação simples
+                        if (isSlotOccupiedByAppointment(slot, appointments)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                // REGRA: Se serviços foram informados, verifica se o horário final não ultrapassa bloqueios
                 .filter(slot -> {
                     if (serviceDuration > 0) {
                         boolean wouldConflict = wouldEndTimeConflictWithBlockedSlots(slot, serviceDuration, blockedSlots, workingHours);
                         if (wouldConflict) {
-                            log.info("  ❌ Slot {} removido (terminaria em conflito com bloqueio)", slot);
+                            log.debug("  ❌ Slot {} removido (terminaria em conflito com bloqueio)", slot);
                         } else {
                             log.debug("  ✅ Slot {} OK (termina às {})", slot, slot.plusMinutes(serviceDuration));
                         }
@@ -131,6 +156,7 @@ public class AvailableTimeSlotsService {
      * - Horário de trabalho do tenant
      * - Bloqueios de horários
      * - Agendamentos existentes
+     * - Flag horarioFlexivel (não afeta este método diretamente, pois não considera duração)
      *
      * @param date     Data para consulta
      * @param tenantId ID do profissional (se null, usa o tenant do contexto)
@@ -151,6 +177,11 @@ public class AvailableTimeSlotsService {
 
         // Obtém horário de trabalho do tenant
         TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHours(tenantId);
+
+        // Log informativo sobre o modo de horário
+        boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
+        log.info("Modo de horário: {} (horarioFlexivel={})",
+                isFlexible ? "FLEXÍVEL" : "RÍGIDO", isFlexible);
 
         // Gera todos os slots possíveis baseado no horário de trabalho
         List<LocalTime> allPossibleSlots = generateAllTimeSlots(workingHours);
@@ -250,6 +281,10 @@ public class AvailableTimeSlotsService {
     /**
      * Verifica se um horário específico está disponível para agendamento.
      *
+     * Considera a flag horarioFlexivel:
+     * - false (Rígido): Horário de término não pode ultrapassar bloqueios ou horário final
+     * - true (Flexível): Permite ultrapassar bloqueios e horário final
+     *
      * @param date      Data do agendamento
      * @param startTime Horário de início desejado
      * @param duration  Duração em minutos
@@ -268,17 +303,30 @@ public class AvailableTimeSlotsService {
 
         LocalTime endTime = startTime.plusMinutes(duration);
 
-        // Verifica se está dentro do horário de trabalho
-        if (!workingHoursService.isIntervalWithinWorkingHours(startTime, endTime, tenantId)) {
+        // Obtém o horário de trabalho para verificar a flag horarioFlexivel
+        TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHours(tenantId);
+        boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
+
+        // Modo RÍGIDO: Verifica se está dentro do horário de trabalho
+        if (!isFlexible && !workingHoursService.isIntervalWithinWorkingHours(startTime, endTime, tenantId)) {
             return false;
         }
 
-        // Verifica se há bloqueio de horário
-        if (blockedTimeSlotService.isIntervalBlocked(date, startTime, endTime)) {
+        // Modo RÍGIDO: Verifica se há bloqueio de horário
+        if (!isFlexible && blockedTimeSlotService.isIntervalBlocked(date, startTime, endTime)) {
             return false;
         }
 
-        // Verifica se há conflito com agendamentos existentes
+        // Modo FLEXÍVEL: Verifica apenas se o horário de INÍCIO não está bloqueado
+        if (isFlexible) {
+            // No modo flexível, apenas o ponto de início não pode estar em um bloqueio
+            List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService.getBlockedTimeSlotsForDate(date);
+            if (isSlotBlocked(startTime, blockedSlots)) {
+                return false;
+            }
+        }
+
+        // Verifica se há conflito com agendamentos existentes (sempre obrigatório)
         List<AppointmentsEntity> appointments = appointmentsRepository.findByTenantIdAndDate(tenantId, date);
         for (AppointmentsEntity appointment : appointments) {
             if (hasTimeConflict(startTime, endTime, appointment.getStartTime(), appointment.getEndTime())) {
@@ -382,8 +430,12 @@ public class AvailableTimeSlotsService {
      * Verifica se o horário de término do atendimento (slot + duração) ultrapassaria ou coincidiria
      * com um horário bloqueado.
      *
-     * REGRA DE NEGÓCIO: Não deve exibir horários de início cujo horário final do atendimento
-     * ultrapasse ou coincida com um horário bloqueado.
+     * REGRA DE NEGÓCIO:
+     * - horarioFlexivel = false: Não deve exibir horários de início cujo horário final
+     *   ultrapasse ou coincida com um horário bloqueado ou o horário final de funcionamento.
+     *
+     * - horarioFlexivel = true: Permite que agendamentos ultrapassem bloqueios e o horário final.
+     *   Apenas verifica se o horário de INÍCIO está disponível.
      *
      * @param slot Horário de início proposto
      * @param duration Duração do serviço em minutos
@@ -399,13 +451,20 @@ public class AvailableTimeSlotsService {
 
         LocalTime endTime = slot.plusMinutes(duration);
 
-        // Verifica se o horário de término ultrapassa o horário de trabalho
+        // Se horário é FLEXÍVEL, permite ultrapassar bloqueios e horário final
+        if (Boolean.TRUE.equals(workingHours.getHorarioFlexivel())) {
+            log.debug("✅ Horário flexível ativo: Slot {} permitido (mesmo que termine às {} após expediente/bloqueios)",
+                    slot, endTime);
+            return false; // Não há conflito em modo flexível
+        }
+
+        // Modo RÍGIDO: Verifica se o horário de término ultrapassa o horário de trabalho
         if (endTime.isAfter(workingHours.getEndTime())) {
             log.debug("Horário {} + {} min resultaria em término após o expediente", slot, duration);
             return true;
         }
 
-        // Verifica se o horário de término coincide ou ultrapassa algum bloqueio
+        // Modo RÍGIDO: Verifica se o horário de término coincide ou ultrapassa algum bloqueio
         for (BlockedTimeSlotEntity block : blockedSlots) {
             LocalTime blockStart = block.getStartTime();
             LocalTime blockEnd = block.getEndTime();
@@ -426,6 +485,47 @@ public class AvailableTimeSlotsService {
 
         return false;
     }
+
+    /**
+     * Verifica se um novo agendamento (slot + duração) conflitaria com agendamentos existentes.
+     *
+     * REGRA CRÍTICA: Dois agendamentos conflitam se seus intervalos se sobrepõem.
+     *
+     * Conflito ocorre quando:
+     * - Novo agendamento começa ANTES do fim de um existente E
+     * - Novo agendamento termina DEPOIS do início de um existente
+     *
+     * Exemplos:
+     * - Existente: 11:30-12:20
+     * - Novo 11:20-12:10: CONFLITA (11:20 < 12:20 E 12:10 > 11:30) ✅
+     * - Novo 11:00-11:30: NÃO CONFLITA (termina exatamente quando o outro começa)
+     * - Novo 12:20-13:00: NÃO CONFLITA (começa exatamente quando o outro termina)
+     *
+     * @param slot Horário de início do novo agendamento
+     * @param duration Duração do novo agendamento em minutos
+     * @param appointments Lista de agendamentos existentes
+     * @return true se haveria conflito
+     */
+    private boolean wouldConflictWithAppointments(LocalTime slot, int duration, List<AppointmentsEntity> appointments) {
+        LocalTime newEndTime = slot.plusMinutes(duration);
+
+        for (AppointmentsEntity existingAppointment : appointments) {
+            LocalTime existingStart = existingAppointment.getStartTime();
+            LocalTime existingEnd = existingAppointment.getEndTime();
+
+            // Verifica se há sobreposição entre os intervalos
+            // Conflito: novo.início < existente.fim E novo.fim > existente.início
+            if (slot.isBefore(existingEnd) && newEndTime.isAfter(existingStart)) {
+                log.debug("❌ CONFLITO: Novo agendamento {} - {} conflita com existente {} - {}",
+                        slot, newEndTime, existingStart, existingEnd);
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
+
+
 
 

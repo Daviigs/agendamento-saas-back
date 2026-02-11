@@ -75,5 +75,20 @@ public class TenantWorkingHoursEntity {
     @NotNull
     @Column(name = "active", nullable = false)
     private Boolean active = true;
+
+    /**
+     * Define o comportamento de validação de agendamentos em relação a bloqueios e horários.
+     *
+     * - true (Flexível): Agendamentos podem ultrapassar bloqueios e o horário final.
+     *   Útil para negócios com agenda flexível (ex: salões, prestadores autônomos).
+     *
+     * - false (Rígido): Bloqueios e horário final são barreiras absolutas.
+     *   Útil para negócios com agenda rígida (ex: clínicas, consultórios).
+     *
+     * Padrão: false (mais restritivo)
+     */
+    @NotNull
+    @Column(name = "horario_flexivel", nullable = false)
+    private Boolean horarioFlexivel = false;
 }
 

@@ -2,10 +2,7 @@ package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.dto.Whats;
-import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
-import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
-import lash_salao_kc.agendamento_back.domain.entity.ServicesEntity;
-import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
+import lash_salao_kc.agendamento_back.domain.entity.*;
 import lash_salao_kc.agendamento_back.exception.AppointmentConflictException;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
 import lash_salao_kc.agendamento_back.exception.ResourceNotFoundException;
@@ -274,13 +271,45 @@ public class AppointmentsService {
     /**
      * Valida se não há bloqueios de horário no período desejado.
      *
+     * Considera a flag horarioFlexivel do tenant:
+     * - Modo RÍGIDO (false): Valida o intervalo completo (início até fim)
+     * - Modo FLEXÍVEL (true): Valida apenas se o horário de INÍCIO não está bloqueado
+     *
      * @throws BusinessException se houver bloqueio de horário
      */
     private void validateNoTimeSlotBlocks(LocalDate date, LocalTime startTime, LocalTime endTime) {
-        if (blockedTimeSlotService.isIntervalBlocked(date, startTime, endTime)) {
-            throw new BusinessException(
-                    String.format("Não é possível agendar entre %s e %s. Este horário está bloqueado.",
-                            startTime, endTime));
+        // Obter configuração de horário de trabalho do tenant para verificar o modo
+        TenantWorkingHoursEntity workingHours = workingHoursService.getCurrentTenantWorkingHours();
+        boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
+
+        if (isFlexible) {
+            // Modo FLEXÍVEL: Apenas o horário de INÍCIO não pode estar bloqueado
+            // O agendamento pode atravessar bloqueios
+            List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService.getBlockedTimeSlotsForDate(date);
+
+            for (BlockedTimeSlotEntity block : blockedSlots) {
+                LocalTime blockStart = block.getStartTime();
+                LocalTime blockEnd = block.getEndTime();
+
+                // Verifica se o horário de INÍCIO está dentro de um bloqueio
+                if (!startTime.isBefore(blockStart) && startTime.isBefore(blockEnd)) {
+                    throw new BusinessException(
+                            String.format("Não é possível iniciar um agendamento às %s. Este horário está bloqueado (bloqueio: %s - %s).",
+                                    startTime, blockStart, blockEnd));
+                }
+            }
+
+            log.debug("✅ Modo FLEXÍVEL: Horário de início {} está livre (agendamento pode atravessar bloqueios)", startTime);
+
+        } else {
+            // Modo RÍGIDO: Valida o intervalo completo (comportamento original)
+            if (blockedTimeSlotService.isIntervalBlocked(date, startTime, endTime)) {
+                throw new BusinessException(
+                        String.format("Não é possível agendar entre %s e %s. Este horário está bloqueado.",
+                                startTime, endTime));
+            }
+
+            log.debug("✅ Modo RÍGIDO: Intervalo {} - {} está livre", startTime, endTime);
         }
     }
 
@@ -431,16 +460,37 @@ public class AppointmentsService {
      * Valida se o horário está dentro do expediente do tenant.
      * Utiliza o horário de trabalho configurado para o tenant.
      *
+     * Considera a flag horarioFlexivel:
+     * - Modo RÍGIDO (false): Valida que início E fim estão dentro do expediente
+     * - Modo FLEXÍVEL (true): Valida apenas que o INÍCIO está dentro do expediente
+     *
      * @throws BusinessException se o horário for inválido
      */
     private void validateBusinessHours(LocalTime startTime, LocalTime endTime) {
         String tenantId = TenantContext.getTenantId();
+        TenantWorkingHoursEntity workingHours = workingHoursService.getWorkingHours(tenantId);
+        boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
 
-        if (!workingHoursService.isIntervalWithinWorkingHours(startTime, endTime, tenantId)) {
-            var workingHours = workingHoursService.getWorkingHours(tenantId);
-            throw new BusinessException(
-                    String.format("Horário de agendamento (%s às %s) está fora do expediente de trabalho (%s às %s)",
-                            startTime, endTime, workingHours.getStartTime(), workingHours.getEndTime()));
+        if (isFlexible) {
+            // Modo FLEXÍVEL: Apenas o horário de INÍCIO precisa estar dentro do expediente
+            if (startTime.isBefore(workingHours.getStartTime()) || !startTime.isBefore(workingHours.getEndTime())) {
+                throw new BusinessException(
+                        String.format("Horário de início (%s) está fora do expediente de trabalho (%s às %s)",
+                                startTime, workingHours.getStartTime(), workingHours.getEndTime()));
+            }
+
+            log.debug("✅ Modo FLEXÍVEL: Horário de início {} dentro do expediente (término {} pode ultrapassar)",
+                    startTime, endTime);
+
+        } else {
+            // Modo RÍGIDO: Valida intervalo completo (comportamento original)
+            if (!workingHoursService.isIntervalWithinWorkingHours(startTime, endTime, tenantId)) {
+                throw new BusinessException(
+                        String.format("Horário de agendamento (%s às %s) está fora do expediente de trabalho (%s às %s)",
+                                startTime, endTime, workingHours.getStartTime(), workingHours.getEndTime()));
+            }
+
+            log.debug("✅ Modo RÍGIDO: Intervalo {} - {} dentro do expediente", startTime, endTime);
         }
     }
 

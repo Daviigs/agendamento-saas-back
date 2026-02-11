@@ -5,6 +5,7 @@ import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
+import lash_salao_kc.agendamento_back.exception.ResourceNotFoundException;
 import lash_salao_kc.agendamento_back.repository.ProfessionalRepository;
 import lash_salao_kc.agendamento_back.repository.TenantWorkingHoursRepository;
 import lombok.RequiredArgsConstructor;
@@ -117,6 +118,7 @@ public class TenantWorkingHoursService {
      * @param startTime           Horário de início
      * @param endTime             Horário de término
      * @param slotIntervalMinutes Intervalo entre slots (minutos)
+     * @param horarioFlexivel     Define se permite ultrapassar bloqueios/horário final
      * @return Configuração salva
      * @throws BusinessException se os horários forem inválidos
      */
@@ -124,11 +126,17 @@ public class TenantWorkingHoursService {
     public TenantWorkingHoursEntity configureWorkingHours(
             LocalTime startTime,
             LocalTime endTime,
-            Integer slotIntervalMinutes) {
+            Integer slotIntervalMinutes,
+            Boolean horarioFlexivel) {
 
         String tenantId = TenantContext.getTenantId();
 
         validateWorkingHours(startTime, endTime, slotIntervalMinutes);
+
+        // Define valor padrão para horarioFlexivel se não fornecido
+        if (horarioFlexivel == null) {
+            horarioFlexivel = false;
+        }
 
         Optional<TenantWorkingHoursEntity> existing = workingHoursRepository.findByTenantId(tenantId);
 
@@ -138,7 +146,8 @@ public class TenantWorkingHoursService {
             workingHours.setStartTime(startTime);
             workingHours.setEndTime(endTime);
             workingHours.setSlotIntervalMinutes(slotIntervalMinutes);
-            log.info("Atualizando horário de trabalho do tenant {}", tenantId);
+            workingHours.setHorarioFlexivel(horarioFlexivel);
+            log.info("Atualizando horário de trabalho do tenant {} (flexível: {})", tenantId, horarioFlexivel);
             return workingHoursRepository.save(workingHours);
         } else {
             // Cria nova configuração
@@ -151,10 +160,24 @@ public class TenantWorkingHoursService {
             workingHours.setStartTime(startTime);
             workingHours.setEndTime(endTime);
             workingHours.setSlotIntervalMinutes(slotIntervalMinutes);
+            workingHours.setHorarioFlexivel(horarioFlexivel);
             workingHours.setActive(true);
-            log.info("Criando horário de trabalho para tenant {} com profissional {}", tenantId, professional.getId());
+            log.info("Criando horário de trabalho para tenant {} com profissional {} (flexível: {})",
+                    tenantId, professional.getId(), horarioFlexivel);
             return workingHoursRepository.save(workingHours);
         }
+    }
+
+    /**
+     * Sobrecarga do método para compatibilidade com código existente.
+     * Usa horarioFlexivel = false por padrão.
+     */
+    @Transactional
+    public TenantWorkingHoursEntity configureWorkingHours(
+            LocalTime startTime,
+            LocalTime endTime,
+            Integer slotIntervalMinutes) {
+        return configureWorkingHours(startTime, endTime, slotIntervalMinutes, false);
     }
 
     /**
@@ -185,6 +208,31 @@ public class TenantWorkingHoursService {
             workingHoursRepository.delete(existing.get());
             log.info("Removendo configuração de horário do tenant {}", tenantId);
         }
+    }
+
+    /**
+     * Atualiza apenas a flag horarioFlexivel do tenant atual.
+     *
+     * @param horarioFlexivel Nova configuração (true = flexível, false = rígido)
+     * @return Configuração atualizada
+     * @throws ResourceNotFoundException se o tenant não tiver horário configurado
+     */
+    @Transactional
+    public TenantWorkingHoursEntity updateHorarioFlexivel(Boolean horarioFlexivel) {
+        String tenantId = TenantContext.getTenantId();
+
+        if (horarioFlexivel == null) {
+            horarioFlexivel = false;
+        }
+
+        TenantWorkingHoursEntity workingHours = workingHoursRepository.findByTenantId(tenantId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Horário de trabalho não configurado para o tenant " + tenantId));
+
+        workingHours.setHorarioFlexivel(horarioFlexivel);
+        log.info("Atualizando horário flexível do tenant {} para: {}", tenantId, horarioFlexivel);
+
+        return workingHoursRepository.save(workingHours);
     }
 
     /**

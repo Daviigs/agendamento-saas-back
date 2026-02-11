@@ -22,5 +22,15 @@ public class TenantWorkingHoursRequest {
     private LocalTime endTime;
 
     private Integer slotIntervalMinutes = 30;
+
+    /**
+     * Define o comportamento de validação de agendamentos.
+     *
+     * - true (Flexível): Permite agendamentos ultrapassarem bloqueios e horário final
+     * - false (Rígido): Bloqueios e horário final são barreiras absolutas
+     *
+     * Padrão: false
+     */
+    private Boolean horarioFlexivel = false;
 }
 

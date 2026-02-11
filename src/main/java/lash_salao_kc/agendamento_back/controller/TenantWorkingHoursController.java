@@ -44,9 +44,24 @@ public class TenantWorkingHoursController extends BaseController {
         TenantWorkingHoursEntity workingHours = workingHoursService.configureWorkingHours(
                 request.getStartTime(),
                 request.getEndTime(),
-                request.getSlotIntervalMinutes()
+                request.getSlotIntervalMinutes(),
+                request.getHorarioFlexivel()
         );
 
+        return ResponseEntity.ok(workingHours);
+    }
+
+    /**
+     * Atualiza apenas a flag de horário flexível do tenant atual.
+     *
+     * @param horarioFlexivel true para modo flexível, false para modo rígido
+     * @return Horário de trabalho atualizado (200 OK)
+     */
+    @PatchMapping("/horario-flexivel")
+    public ResponseEntity<TenantWorkingHoursEntity> updateHorarioFlexivel(
+            @RequestParam("flexivel") Boolean horarioFlexivel) {
+
+        TenantWorkingHoursEntity workingHours = workingHoursService.updateHorarioFlexivel(horarioFlexivel);
         return ResponseEntity.ok(workingHours);
     }
 
