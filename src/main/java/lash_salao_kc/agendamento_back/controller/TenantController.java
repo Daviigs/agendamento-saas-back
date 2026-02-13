@@ -2,6 +2,7 @@ package lash_salao_kc.agendamento_back.controller;
 
 import jakarta.validation.Valid;
 import lash_salao_kc.agendamento_back.domain.dto.CreateTenantRequest;
+import lash_salao_kc.agendamento_back.domain.dto.UpdateTenantRequest;
 import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.service.TenantService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,8 @@ import java.util.UUID;
 /**
  * Controller REST para gerenciamento de tenants (salões/clientes).
  * Endpoints administrativos para criar e gerenciar tenants do sistema.
+ *
+ * Suporta a palavra-chave "current" no lugar do UUID para operar no tenant do contexto (X-Tenant-Id).
  */
 @RestController
 @RequestMapping("/tenants")
@@ -35,14 +38,19 @@ public class TenantController {
     }
 
     /**
-     * Busca um tenant específico por ID.
+     * Busca um tenant específico por ID ou "current" para o tenant do contexto.
      *
-     * @param tenantId ID do tenant
+     * @param tenantId ID do tenant (UUID) ou "current"
      * @return Tenant encontrado (200 OK)
      */
     @GetMapping("/{tenantId}")
-    public ResponseEntity<TenantEntity> getTenantById(@PathVariable UUID tenantId) {
-        TenantEntity tenant = tenantService.getTenantById(tenantId);
+    public ResponseEntity<TenantEntity> getTenantById(@PathVariable String tenantId) {
+        TenantEntity tenant;
+        if ("current".equalsIgnoreCase(tenantId)) {
+            tenant = tenantService.getCurrentTenant();
+        } else {
+            tenant = tenantService.getTenantById(UUID.fromString(tenantId));
+        }
         return ResponseEntity.ok(tenant);
     }
 
@@ -60,40 +68,61 @@ public class TenantController {
 
     /**
      * Atualiza um tenant existente.
+     * Aceita UUID do tenant ou "current" para atualizar o tenant do contexto (header X-Tenant-Id).
      *
-     * @param tenantId ID do tenant
-     * @param request  Dados atualizados
+     * @param tenantId ID do tenant (UUID) ou "current"
+     * @param request  Dados atualizados (não requer tenantKey)
      * @return Tenant atualizado (200 OK)
      */
     @PutMapping("/{tenantId}")
     public ResponseEntity<TenantEntity> updateTenant(
-            @PathVariable UUID tenantId,
-            @Valid @RequestBody CreateTenantRequest request) {
-        TenantEntity tenant = tenantService.updateTenant(tenantId, request);
+            @PathVariable String tenantId,
+            @Valid @RequestBody UpdateTenantRequest request) {
+        TenantEntity tenant;
+        if ("current".equalsIgnoreCase(tenantId)) {
+            TenantEntity currentTenant = tenantService.getCurrentTenant();
+            tenant = tenantService.updateTenant(currentTenant.getId(), request);
+        } else {
+            tenant = tenantService.updateTenant(UUID.fromString(tenantId), request);
+        }
         return ResponseEntity.ok(tenant);
     }
 
     /**
      * Ativa um tenant.
+     * Aceita UUID do tenant ou "current" para ativar o tenant do contexto.
      *
-     * @param tenantId ID do tenant
+     * @param tenantId ID do tenant (UUID) ou "current"
      * @return Tenant ativado (200 OK)
      */
     @PatchMapping("/{tenantId}/activate")
-    public ResponseEntity<TenantEntity> activateTenant(@PathVariable UUID tenantId) {
-        TenantEntity tenant = tenantService.setTenantActive(tenantId, true);
+    public ResponseEntity<TenantEntity> activateTenant(@PathVariable String tenantId) {
+        TenantEntity tenant;
+        if ("current".equalsIgnoreCase(tenantId)) {
+            TenantEntity currentTenant = tenantService.getCurrentTenant();
+            tenant = tenantService.setTenantActive(currentTenant.getId(), true);
+        } else {
+            tenant = tenantService.setTenantActive(UUID.fromString(tenantId), true);
+        }
         return ResponseEntity.ok(tenant);
     }
 
     /**
      * Desativa um tenant.
+     * Aceita UUID do tenant ou "current" para desativar o tenant do contexto.
      *
-     * @param tenantId ID do tenant
+     * @param tenantId ID do tenant (UUID) ou "current"
      * @return Tenant desativado (200 OK)
      */
     @PatchMapping("/{tenantId}/deactivate")
-    public ResponseEntity<TenantEntity> deactivateTenant(@PathVariable UUID tenantId) {
-        TenantEntity tenant = tenantService.setTenantActive(tenantId, false);
+    public ResponseEntity<TenantEntity> deactivateTenant(@PathVariable String tenantId) {
+        TenantEntity tenant;
+        if ("current".equalsIgnoreCase(tenantId)) {
+            TenantEntity currentTenant = tenantService.getCurrentTenant();
+            tenant = tenantService.setTenantActive(currentTenant.getId(), false);
+        } else {
+            tenant = tenantService.setTenantActive(UUID.fromString(tenantId), false);
+        }
         return ResponseEntity.ok(tenant);
     }
 }

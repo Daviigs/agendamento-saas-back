@@ -2,6 +2,7 @@ package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.config.TenantContext;
 import lash_salao_kc.agendamento_back.domain.dto.CreateTenantRequest;
+import lash_salao_kc.agendamento_back.domain.dto.UpdateTenantRequest;
 import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
 import lash_salao_kc.agendamento_back.exception.DuplicateResourceException;
@@ -108,14 +109,20 @@ public class TenantService {
         tenant.setContactPhone(request.getContactPhone());
         tenant.setActive(true);
 
+        // Define tempo de lembrete: usa o valor do request ou mantém o padrão (120 minutos)
+        if (request.getTempoLembreteMinutos() != null) {
+            tenant.setTempoLembreteMinutos(request.getTempoLembreteMinutos());
+        }
+
         TenantEntity saved = tenantRepository.save(tenant);
-        log.info("Novo tenant criado: {} - {}", saved.getTenantKey(), saved.getBusinessName());
+        log.info("Novo tenant criado: {} - {} (lembrete: {} minutos antes)",
+                saved.getTenantKey(), saved.getBusinessName(), saved.getTempoLembreteMinutos());
 
         return saved;
     }
 
     /**
-     * Atualiza um tenant existente.
+     * Atualiza um tenant existente (versão antiga - manter para compatibilidade).
      *
      * @param tenantId ID do tenant
      * @param request  Dados atualizados
@@ -123,14 +130,98 @@ public class TenantService {
      */
     @Transactional
     public TenantEntity updateTenant(UUID tenantId, CreateTenantRequest request) {
+        log.info("🔍 DEBUG - Iniciando atualização do tenant: {}", tenantId);
+        log.info("🔍 DEBUG - Request recebido: businessName={}, email={}, phone={}, tempoLembrete={}",
+            request.getBusinessName(),
+            request.getContactEmail(),
+            request.getContactPhone(),
+            request.getTempoLembreteMinutos());
+
         TenantEntity tenant = getTenantById(tenantId);
+
+        log.info("🔍 DEBUG - Tenant atual: key={}, businessName={}, tempoLembrete={}",
+            tenant.getTenantKey(),
+            tenant.getBusinessName(),
+            tenant.getTempoLembreteMinutos());
 
         tenant.setBusinessName(request.getBusinessName());
         tenant.setContactEmail(request.getContactEmail());
         tenant.setContactPhone(request.getContactPhone());
 
+        // Atualiza tempo de lembrete se fornecido
+        if (request.getTempoLembreteMinutos() != null) {
+            log.info("🔍 DEBUG - Atualizando tempo de lembrete de {} para {}",
+                tenant.getTempoLembreteMinutos(), request.getTempoLembreteMinutos());
+            tenant.setTempoLembreteMinutos(request.getTempoLembreteMinutos());
+            log.info("🔍 DEBUG - Tempo após setTempoLembreteMinutos: {}", tenant.getTempoLembreteMinutos());
+        } else {
+            log.warn("⚠️ DEBUG - tempoLembreteMinutos está NULL no request!");
+        }
+
+        log.info("🔍 DEBUG - Salvando tenant com tempoLembrete={}", tenant.getTempoLembreteMinutos());
+        TenantEntity saved = tenantRepository.save(tenant);
+        log.info("🔍 DEBUG - Tenant salvo: tempoLembrete={}, updatedAt={}",
+            saved.getTempoLembreteMinutos(), saved.getUpdatedAt());
+
         log.info("Tenant atualizado: {}", tenant.getTenantKey());
-        return tenantRepository.save(tenant);
+        return saved;
+    }
+
+    /**
+     * Atualiza um tenant existente usando UpdateTenantRequest (recomendado).
+     * Apenas os campos não-null no request serão atualizados.
+     *
+     * @param tenantId ID do tenant
+     * @param request  Dados atualizados
+     * @return Tenant atualizado
+     */
+    @Transactional
+    public TenantEntity updateTenant(UUID tenantId, UpdateTenantRequest request) {
+        log.info("🔍 DEBUG - Iniciando atualização do tenant: {}", tenantId);
+        log.info("🔍 DEBUG - UpdateRequest recebido: businessName={}, email={}, phone={}, tempoLembrete={}",
+            request.getBusinessName(),
+            request.getContactEmail(),
+            request.getContactPhone(),
+            request.getTempoLembreteMinutos());
+
+        TenantEntity tenant = getTenantById(tenantId);
+
+        log.info("🔍 DEBUG - Tenant atual: key={}, businessName={}, tempoLembrete={}",
+            tenant.getTenantKey(),
+            tenant.getBusinessName(),
+            tenant.getTempoLembreteMinutos());
+
+        // Atualiza apenas os campos que foram enviados (não-null)
+        if (request.getBusinessName() != null) {
+            log.info("🔍 DEBUG - Atualizando businessName de '{}' para '{}'",
+                tenant.getBusinessName(), request.getBusinessName());
+            tenant.setBusinessName(request.getBusinessName());
+        }
+
+        if (request.getContactEmail() != null) {
+            log.info("🔍 DEBUG - Atualizando email");
+            tenant.setContactEmail(request.getContactEmail());
+        }
+
+        if (request.getContactPhone() != null) {
+            log.info("🔍 DEBUG - Atualizando telefone");
+            tenant.setContactPhone(request.getContactPhone());
+        }
+
+        // Atualiza tempo de lembrete se fornecido
+        if (request.getTempoLembreteMinutos() != null) {
+            log.info("🔍 DEBUG - Atualizando tempo de lembrete de {} para {}",
+                tenant.getTempoLembreteMinutos(), request.getTempoLembreteMinutos());
+            tenant.setTempoLembreteMinutos(request.getTempoLembreteMinutos());
+        }
+
+        log.info("🔍 DEBUG - Salvando tenant com tempoLembrete={}", tenant.getTempoLembreteMinutos());
+        TenantEntity saved = tenantRepository.save(tenant);
+        log.info("🔍 DEBUG - Tenant salvo: tempoLembrete={}, updatedAt={}",
+            saved.getTempoLembreteMinutos(), saved.getUpdatedAt());
+
+        log.info("Tenant atualizado: {}", tenant.getTenantKey());
+        return saved;
     }
 
     /**

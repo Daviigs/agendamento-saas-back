@@ -78,6 +78,17 @@ public class TenantEntity {
     private String timezone = "America/Sao_Paulo";
 
     /**
+     * Tempo em minutos de antecedência para envio de lembretes de agendamentos.
+     * Exemplos:
+     * - 120 = 2 horas antes
+     * - 60 = 1 hora antes
+     * - 30 = 30 minutos antes
+     * Padrão: 120 minutos
+     */
+    @Column(name = "tempo_lembrete_minutos", nullable = false)
+    private Integer tempoLembreteMinutos = 120;
+
+    /**
      * Data/hora de criação do registro.
      */
     @CreationTimestamp
