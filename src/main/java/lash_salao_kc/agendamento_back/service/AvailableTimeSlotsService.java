@@ -75,8 +75,13 @@ public class AvailableTimeSlotsService {
             log.info("Duração total dos serviços: {} minutos", totalDuration);
         }
 
+        // Obtém agendamentos existentes deste profissional na data
+        List<AppointmentsEntity> appointments = appointmentsRepository
+                .findByProfessionalIdAndDate(professionalId, date);
+
         // Gera todos os slots possíveis baseado no horário de trabalho
-        List<LocalTime> allPossibleSlots = generateAllTimeSlots(workingHours);
+        // INCLUI os horários de término dos agendamentos existentes como novos pontos de início
+        List<LocalTime> allPossibleSlots = generateAllTimeSlotsWithAppointmentEndTimes(workingHours, appointments);
 
         // Obtém bloqueios de horário deste profissional para esta data
         List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService
@@ -86,9 +91,6 @@ public class AvailableTimeSlotsService {
         blockedSlots.forEach(block ->
             log.info("  - Bloqueio: {} até {}", block.getStartTime(), block.getEndTime()));
 
-        // Obtém agendamentos existentes deste profissional na data
-        List<AppointmentsEntity> appointments = appointmentsRepository
-                .findByProfessionalIdAndDate(professionalId, date);
 
         log.info("Agendamentos existentes: {}", appointments.size());
 
@@ -188,14 +190,16 @@ public class AvailableTimeSlotsService {
         log.info("Modo de horário: {} (horarioFlexivel={})",
                 isFlexible ? "FLEXÍVEL" : "RÍGIDO", isFlexible);
 
+        // Obtém agendamentos existentes na data
+        List<AppointmentsEntity> appointments = appointmentsRepository.findByTenantIdAndDate(finalTenantId, date);
+
         // Gera todos os slots possíveis baseado no horário de trabalho
-        List<LocalTime> allPossibleSlots = generateAllTimeSlots(workingHours);
+        // INCLUI os horários de término dos agendamentos existentes como novos pontos de início
+        List<LocalTime> allPossibleSlots = generateAllTimeSlotsWithAppointmentEndTimes(workingHours, appointments);
 
         // Obtém bloqueios de horário para esta data
         List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService.getBlockedTimeSlotsForDate(date);
 
-        // Obtém agendamentos existentes na data
-        List<AppointmentsEntity> appointments = appointmentsRepository.findByTenantIdAndDate(finalTenantId, date);
 
         // Filtra slots disponíveis
         List<LocalTime> availableSlots = allPossibleSlots.stream()
@@ -239,6 +243,60 @@ public class AvailableTimeSlotsService {
         while (currentSlot.isBefore(lastPossibleStart) || currentSlot.equals(lastPossibleStart)) {
             slots.add(currentSlot);
             currentSlot = currentSlot.plusMinutes(intervalMinutes);
+        }
+
+        return slots;
+    }
+
+    /**
+     * Gera todos os horários possíveis de agendamento baseado no horário de trabalho
+     * E TAMBÉM INCLUI os horários de término dos agendamentos existentes.
+     *
+     * FUNCIONALIDADE CHAVE: Permite que novos agendamentos comecem exatamente quando outros terminam,
+     * mesmo que o horário de término não esteja na grade fixa.
+     *
+     * Exemplo:
+     * - Intervalo configurado: 30 minutos
+     * - Grade fixa: 09:00, 09:30, 10:00, 10:30...
+     * - Agendamento existente: 09:00 às 09:40 (duração 40 min)
+     * - Resultado: 09:00, 09:30, 09:40, 10:00, 10:30...
+     *               (09:40 é adicionado pois é quando o agendamento termina)
+     *
+     * @param workingHours Horário de trabalho configurado
+     * @param appointments Agendamentos existentes na data
+     * @return Lista com todos os horários possíveis (grade fixa + términos de agendamentos)
+     */
+    private List<LocalTime> generateAllTimeSlotsWithAppointmentEndTimes(
+            TenantWorkingHoursEntity workingHours,
+            List<AppointmentsEntity> appointments) {
+
+        // 1. Gera a grade fixa baseada no intervalo configurado
+        List<LocalTime> slots = generateAllTimeSlots(workingHours);
+
+        // 2. Adiciona os horários de término dos agendamentos existentes
+        if (appointments != null && !appointments.isEmpty()) {
+            LocalTime workingEndTime = workingHours.getEndTime();
+
+            for (AppointmentsEntity appointment : appointments) {
+                LocalTime endTime = appointment.getEndTime();
+
+                // Só adiciona se:
+                // - O horário de término está dentro do expediente
+                // - Ainda não existe na lista
+                if (!endTime.isAfter(workingEndTime) && !slots.contains(endTime)) {
+                    slots.add(endTime);
+                    log.debug("➕ Adicionado horário {} (término do agendamento {})",
+                            endTime, appointment.getStartTime());
+                }
+            }
+
+            // 3. Ordena a lista final para manter a ordem cronológica
+            slots.sort(LocalTime::compareTo);
+
+            log.info("✅ Gerados {} horários possíveis ({} da grade fixa + {} de términos de agendamentos)",
+                    slots.size(),
+                    generateAllTimeSlots(workingHours).size(),
+                    slots.size() - generateAllTimeSlots(workingHours).size());
         }
 
         return slots;
