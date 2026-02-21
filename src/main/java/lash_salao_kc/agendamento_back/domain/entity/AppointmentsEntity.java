@@ -4,12 +4,16 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import lash_salao_kc.agendamento_back.domain.enums.PaymentMethod;
+import lash_salao_kc.agendamento_back.domain.enums.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -107,6 +111,55 @@ public class AppointmentsEntity {
     @NotNull
     @Column(name = "user_phone", nullable = false)
     private String userPhone;
+
+    /**
+     * Status do pagamento do agendamento.
+     * Valor padrão: PENDING (pendente).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+
+    /**
+     * Método de pagamento utilizado.
+     * Pode ser null caso o pagamento ainda não tenha sido realizado.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
+    /**
+     * Valor original calculado do agendamento (soma dos preços dos serviços).
+     * Este valor é calculado automaticamente e não muda.
+     * Serve como referência para comparação com o valor efetivamente pago.
+     */
+    @Column(name = "original_amount", precision = 10, scale = 2)
+    private BigDecimal originalAmount;
+
+    /**
+     * Valor total efetivamente pago/a pagar.
+     * Por padrão, igual ao originalAmount, mas pode ser diferente devido a:
+     * - Descontos aplicados
+     * - Acréscimos por serviços extras
+     * - Ajustes comerciais
+     * Armazenado com precisão de 2 casas decimais.
+     */
+    @Column(name = "total_amount", precision = 10, scale = 2)
+    private BigDecimal totalAmount;
+
+    /**
+     * Valor do desconto aplicado (se houver).
+     * Calculado como: originalAmount - totalAmount (quando totalAmount < originalAmount)
+     */
+    @Column(name = "discount_amount", precision = 10, scale = 2)
+    private BigDecimal discountAmount;
+
+    /**
+     * Data e hora em que o pagamento foi confirmado.
+     * Null enquanto o pagamento estiver pendente.
+     */
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 
     /**
      * Flag que indica se o lembrete automático já foi enviado.

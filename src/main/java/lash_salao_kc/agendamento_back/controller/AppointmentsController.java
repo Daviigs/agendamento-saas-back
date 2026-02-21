@@ -2,6 +2,7 @@ package lash_salao_kc.agendamento_back.controller;
 
 import jakarta.validation.Valid;
 import lash_salao_kc.agendamento_back.domain.dto.CreateAppointmentRequest;
+import lash_salao_kc.agendamento_back.domain.dto.UpdatePaymentRequest;
 import lash_salao_kc.agendamento_back.domain.entity.AppointmentsEntity;
 import lash_salao_kc.agendamento_back.service.AppointmentsService;
 import lombok.RequiredArgsConstructor;
@@ -143,6 +144,31 @@ public class AppointmentsController extends BaseController {
     public ResponseEntity<Void> cancelAppointment(@PathVariable UUID appointmentId) {
         appointmentsService.cancelAppointment(appointmentId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Atualiza as informações de pagamento de um agendamento.
+     *
+     * @param appointmentId ID do agendamento
+     * @param request Dados do pagamento a atualizar
+     * @return Agendamento atualizado (200 OK)
+     */
+    @PatchMapping("/{appointmentId}/payment")
+    public ResponseEntity<AppointmentsEntity> updatePayment(
+            @PathVariable UUID appointmentId,
+            @Valid @RequestBody UpdatePaymentRequest request) {
+
+        log.info("Atualizando pagamento do agendamento {}: status={}, method={}, amount={}",
+                appointmentId, request.getPaymentStatus(), request.getPaymentMethod(), request.getTotalAmount());
+
+        AppointmentsEntity updatedAppointment = appointmentsService.updatePayment(
+                appointmentId,
+                request.getPaymentStatus(),
+                request.getPaymentMethod(),
+                request.getTotalAmount()
+        );
+
+        return ResponseEntity.ok(updatedAppointment);
     }
 }
 

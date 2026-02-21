@@ -408,6 +408,18 @@ public class AppointmentsService {
         appointment.setUserName(userName);
         appointment.setUserPhone(userPhone);
 
+        // Calcula o valor original (soma dos serviços)
+        double calculatedValue = calculateTotalValue(services);
+        java.math.BigDecimal originalValue = java.math.BigDecimal.valueOf(calculatedValue);
+
+        // Define o valor original (não muda) e o valor total (pode ser alterado depois)
+        appointment.setOriginalAmount(originalValue);
+        appointment.setTotalAmount(originalValue);
+        appointment.setDiscountAmount(java.math.BigDecimal.ZERO);
+
+        // Define status de pagamento inicial como PENDING
+        appointment.setPaymentStatus(lash_salao_kc.agendamento_back.domain.enums.PaymentStatus.PENDING);
+
         return appointment;
     }
 
@@ -561,6 +573,10 @@ public class AppointmentsService {
     public void cancelAppointment(UUID appointmentId) {
         AppointmentsEntity appointment = getAppointmentById(appointmentId);
 
+        // Atualiza o status de pagamento para CANCELLED
+        appointment.setPaymentStatus(lash_salao_kc.agendamento_back.domain.enums.PaymentStatus.CANCELLED);
+        appointmentsRepository.save(appointment);
+
         // Envia notificação de cancelamento via WhatsApp
         try {
             whatsAppService.enviarCancelamento(appointment);
@@ -570,6 +586,112 @@ public class AppointmentsService {
         }
 
         appointmentsRepository.delete(appointment);
+    }
+
+    /**
+     * Atualiza as informações de pagamento de um agendamento.
+     *
+     * @param appointmentId ID do agendamento
+     * @param paymentStatus Novo status do pagamento
+     * @param paymentMethod Método de pagamento (obrigatório se status for PAID)
+     * @param totalAmount Valor total (opcional)
+     * @return Agendamento atualizado
+     * @throws ResourceNotFoundException se o agendamento não for encontrado
+     * @throws BusinessException se os dados fornecidos forem inválidos
+     */
+    @Transactional
+    public AppointmentsEntity updatePayment(
+            UUID appointmentId,
+            lash_salao_kc.agendamento_back.domain.enums.PaymentStatus paymentStatus,
+            lash_salao_kc.agendamento_back.domain.enums.PaymentMethod paymentMethod,
+            java.math.BigDecimal totalAmount) {
+
+        AppointmentsEntity appointment = getAppointmentById(appointmentId);
+
+        // IMPORTANTE: Se originalAmount for null (agendamento antigo), calcula agora
+        if (appointment.getOriginalAmount() == null && appointment.getServices() != null && !appointment.getServices().isEmpty()) {
+            double calculatedValue = appointment.getServices().stream()
+                    .mapToDouble(ServicesEntity::getPrice)
+                    .sum();
+            appointment.setOriginalAmount(java.math.BigDecimal.valueOf(calculatedValue));
+            log.info("⚙️ Calculando originalAmount para agendamento antigo: R$ {}", appointment.getOriginalAmount());
+        }
+
+        // Se totalAmount ainda for null, define como igual ao original
+        if (appointment.getTotalAmount() == null) {
+            appointment.setTotalAmount(appointment.getOriginalAmount());
+            log.info("⚙️ Definindo totalAmount inicial: R$ {}", appointment.getTotalAmount());
+        }
+
+        // Validação: se status for PAID, método de pagamento é obrigatório
+        if (paymentStatus == lash_salao_kc.agendamento_back.domain.enums.PaymentStatus.PAID && paymentMethod == null) {
+            throw new lash_salao_kc.agendamento_back.exception.BusinessException(
+                "Método de pagamento é obrigatório para marcar como pago"
+            );
+        }
+
+        // Atualiza o status
+        appointment.setPaymentStatus(paymentStatus);
+
+        // Atualiza método de pagamento
+        appointment.setPaymentMethod(paymentMethod);
+
+        // VALOR PAGO: SEMPRE OPCIONAL, ESCOLHA DO USUÁRIO
+        // Se informado: usa o valor especificado (com ou sem desconto)
+        // Se não informado: mantém o valor original calculado
+        if (totalAmount != null) {
+            log.info("💰 Usuário informou valor pago: R$ {} (original era R$ {})",
+                    totalAmount, appointment.getOriginalAmount());
+
+            appointment.setTotalAmount(totalAmount);
+
+            // Calcula o desconto automaticamente
+            if (appointment.getOriginalAmount() != null) {
+                java.math.BigDecimal discount = appointment.getOriginalAmount().subtract(totalAmount);
+                appointment.setDiscountAmount(discount);
+
+                if (discount.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    // Desconto aplicado
+                    java.math.BigDecimal percentual = discount
+                            .multiply(java.math.BigDecimal.valueOf(100))
+                            .divide(appointment.getOriginalAmount(), 2, java.math.RoundingMode.HALF_UP);
+                    log.info("✓ Desconto aplicado: R$ {} ({}%)", discount, percentual);
+                } else if (discount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                    // Acréscimo aplicado
+                    log.info("✓ Acréscimo aplicado: R$ {}", discount.abs());
+                } else {
+                    // Sem desconto
+                    log.info("✓ Sem desconto - Valor pago igual ao original");
+                }
+            } else {
+                // Se ainda não temos original, não calcula desconto
+                appointment.setDiscountAmount(java.math.BigDecimal.ZERO);
+                log.warn("⚠️ Não foi possível calcular desconto - originalAmount não disponível");
+            }
+        } else {
+            // Usuário não informou valor - mantém o total atual
+            log.info("💰 Valor pago não informado - mantendo valor atual: R$ {}",
+                    appointment.getTotalAmount());
+            
+            // Recalcula desconto com os valores atuais
+            if (appointment.getOriginalAmount() != null && appointment.getTotalAmount() != null) {
+                java.math.BigDecimal discount = appointment.getOriginalAmount().subtract(appointment.getTotalAmount());
+                appointment.setDiscountAmount(discount);
+            }
+        }
+
+        // Define data/hora do pagamento se status for PAID
+        if (paymentStatus == lash_salao_kc.agendamento_back.domain.enums.PaymentStatus.PAID) {
+            appointment.setPaidAt(java.time.LocalDateTime.now());
+        } else {
+            appointment.setPaidAt(null);
+        }
+
+        log.info("✓ Pagamento atualizado: Status={}, Método={}, Valor Original=R$ {}, Valor Pago=R$ {}, Desconto=R$ {}",
+                paymentStatus, paymentMethod,
+                appointment.getOriginalAmount(), appointment.getTotalAmount(), appointment.getDiscountAmount());
+
+        return appointmentsRepository.save(appointment);
     }
 }
 
