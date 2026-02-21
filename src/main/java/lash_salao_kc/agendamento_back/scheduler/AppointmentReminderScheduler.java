@@ -80,15 +80,33 @@ public class AppointmentReminderScheduler {
         // Força recarregar tenant do banco para garantir valor atualizado
         TenantEntity freshTenant = tenantService.getTenantByKey(tenant.getTenantKey());
         int minutosAntecedencia = freshTenant.getTempoLembreteMinutos();
-        LocalDateTime limit = now.plusMinutes(minutosAntecedencia);
 
-        log.info("📋 Tenant '{}': buscando agendamentos entre {} e {} ({} minutos de antecedência)",
+        // 🔍 LOG DETALHADO: Mostrar valor lido do banco
+        log.info("🔍 Tenant '{}': tempoLembreteMinutos lido do banco = {} minutos ({} horas)",
                 freshTenant.getTenantKey(),
-                now.format(DATE_TIME_FORMATTER),
-                limit.format(DATE_TIME_FORMATTER),
-                minutosAntecedencia);
+                minutosAntecedencia,
+                String.format("%.2f", minutosAntecedencia / 60.0));
 
-        List<AppointmentsEntity> appointments = findAppointmentsToRemind(freshTenant.getTenantKey(), now, limit);
+        // 🔧 CORREÇÃO: Calculamos o horário FUTURO do agendamento
+        // Se agora é 10:00 e antecedência é 120 min, buscamos agendamentos às 12:00
+        LocalDateTime targetTime = now.plusMinutes(minutosAntecedencia);
+
+        // Janela de tolerância: ±1 minuto (para não perder lembretes entre execuções do scheduler)
+        LocalDateTime windowStart = targetTime.minusMinutes(1);
+        LocalDateTime windowEnd = targetTime.plusMinutes(1);
+
+        log.info("📋 Tenant '{}': buscando agendamentos que ocorrerão em {} minutos às {} (janela: {} a {})",
+                freshTenant.getTenantKey(),
+                minutosAntecedencia,
+                targetTime.format(DATE_TIME_FORMATTER),
+                windowStart.format(DATE_TIME_FORMATTER),
+                windowEnd.format(DATE_TIME_FORMATTER));
+
+        List<AppointmentsEntity> appointments = findAppointmentsToRemind(
+                freshTenant.getTenantKey(),
+                windowStart,
+                windowEnd
+        );
 
         log.info("📋 Tenant '{}': {} agendamento(s) para lembrar", freshTenant.getTenantKey(), appointments.size());
 
@@ -106,13 +124,13 @@ public class AppointmentReminderScheduler {
      * Busca agendamentos que precisam de lembrete no período especificado.
      * Busca apenas agendamentos que ainda não tiveram lembrete enviado.
      */
-    private List<AppointmentsEntity> findAppointmentsToRemind(String tenantId, LocalDateTime now, LocalDateTime limit) {
+    private List<AppointmentsEntity> findAppointmentsToRemind(String tenantId, LocalDateTime windowStart, LocalDateTime windowEnd) {
         return appointmentsRepository.findAppointmentsToRemind(
                 tenantId,
-                now.toLocalDate(),
-                now.toLocalTime(),
-                limit.toLocalDate(),
-                limit.toLocalTime()
+                windowStart.toLocalDate(),
+                windowStart.toLocalTime(),
+                windowEnd.toLocalDate(),
+                windowEnd.toLocalTime()
         );
     }
 
@@ -125,10 +143,17 @@ public class AppointmentReminderScheduler {
      */
     private boolean sendReminderForAppointment(AppointmentsEntity appointment) {
         try {
-            log.info("  ➡️  Enviando lembrete para: {} | Data: {} às {}",
+            LocalDateTime appointmentDateTime = LocalDateTime.of(appointment.getDate(), appointment.getStartTime());
+            LocalDateTime now = LocalDateTime.now();
+            long minutosAntes = java.time.Duration.between(now, appointmentDateTime).toMinutes();
+            double horasAntes = minutosAntes / 60.0;
+
+            log.info("  ➡️  Enviando lembrete para: {} | Agendamento: {} às {} | Antecedência: {} min ({} h)",
                 appointment.getUserName(),
                 appointment.getDate().format(DATE_FORMATTER),
-                appointment.getStartTime().format(TIME_FORMATTER));
+                appointment.getStartTime().format(TIME_FORMATTER),
+                minutosAntes,
+                String.format("%.2f", horasAntes));
 
             whatsappService.enviarLembrete(appointment);
 
