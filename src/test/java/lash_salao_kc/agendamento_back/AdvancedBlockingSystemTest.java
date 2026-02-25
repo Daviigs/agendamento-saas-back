@@ -131,8 +131,8 @@ class AdvancedBlockingSystemTest {
                 .thenReturn(professional);
         when(workingHoursRepository.findByTenantId(TEST_TENANT_ID))
                 .thenReturn(Optional.of(workingHours));
-        when(blockedTimeSlotRepository.findConflictingBlocksOnSpecificDate(
-                eq(TEST_TENANT_ID), eq(date), eq(startTime), eq(endTime)))
+        when(blockedTimeSlotRepository.findConflictingBlocksOnSpecificDateByProfessional(
+                eq(professionalId), eq(date), eq(startTime), eq(endTime)))
                 .thenReturn(new ArrayList<>());
         when(blockedTimeSlotRepository.save(any(BlockedTimeSlotEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -177,8 +177,8 @@ class AdvancedBlockingSystemTest {
                 .thenReturn(professional);
         when(workingHoursRepository.findByTenantId(TEST_TENANT_ID))
                 .thenReturn(Optional.of(workingHours));
-        when(blockedTimeSlotRepository.findConflictingRecurringBlocks(
-                eq(TEST_TENANT_ID), eq(dayOfWeek), eq(startTime), eq(endTime)))
+        when(blockedTimeSlotRepository.findConflictingRecurringBlocksByProfessional(
+                eq(professionalId), eq(dayOfWeek), eq(startTime), eq(endTime)))
                 .thenReturn(new ArrayList<>());
         when(blockedTimeSlotRepository.save(any(BlockedTimeSlotEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));

@@ -49,6 +49,19 @@ public interface BlockedTimeSlotRepository extends JpaRepository<BlockedTimeSlot
             @Param("endTime") LocalTime endTime);
 
     /**
+     * Verifica se existe conflito de horário em uma data específica para um profissional específico.
+     */
+    @Query("SELECT b FROM BlockedTimeSlotEntity b WHERE b.professional.id = :professionalId " +
+           "AND b.specificDate = :date " +
+           "AND b.recurring = false " +
+           "AND ((b.startTime < :endTime AND b.endTime > :startTime))")
+    List<BlockedTimeSlotEntity> findConflictingBlocksOnSpecificDateByProfessional(
+            @Param("professionalId") UUID professionalId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    /**
      * Verifica se existe conflito de horário em um dia da semana recorrente.
      */
     @Query("SELECT b FROM BlockedTimeSlotEntity b WHERE b.tenantId = :tenantId " +
@@ -57,6 +70,19 @@ public interface BlockedTimeSlotRepository extends JpaRepository<BlockedTimeSlot
            "AND ((b.startTime < :endTime AND b.endTime > :startTime))")
     List<BlockedTimeSlotEntity> findConflictingRecurringBlocks(
             @Param("tenantId") String tenantId,
+            @Param("dayOfWeek") DayOfWeek dayOfWeek,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    /**
+     * Verifica se existe conflito de horário em um dia da semana recorrente para um profissional específico.
+     */
+    @Query("SELECT b FROM BlockedTimeSlotEntity b WHERE b.professional.id = :professionalId " +
+           "AND b.dayOfWeek = :dayOfWeek " +
+           "AND b.recurring = true " +
+           "AND ((b.startTime < :endTime AND b.endTime > :startTime))")
+    List<BlockedTimeSlotEntity> findConflictingRecurringBlocksByProfessional(
+            @Param("professionalId") UUID professionalId,
             @Param("dayOfWeek") DayOfWeek dayOfWeek,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);

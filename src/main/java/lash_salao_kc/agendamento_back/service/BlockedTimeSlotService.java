@@ -58,7 +58,7 @@ public class BlockedTimeSlotService {
 
         validateTimeInterval(startTime, endTime);
         validateWithinWorkingHours(startTime, endTime, tenantId);
-        validateNoConflictOnSpecificDate(tenantId, date, startTime, endTime);
+        validateNoConflictOnSpecificDate(professionalId, date, startTime, endTime);
 
         BlockedTimeSlotEntity blockedSlot = new BlockedTimeSlotEntity();
         blockedSlot.setTenantId(tenantId);
@@ -103,7 +103,7 @@ public class BlockedTimeSlotService {
 
         validateTimeInterval(startTime, endTime);
         validateWithinWorkingHours(startTime, endTime, tenantId);
-        validateNoConflictOnRecurringDay(tenantId, dayOfWeek, startTime, endTime);
+        validateNoConflictOnRecurringDay(professionalId, dayOfWeek, startTime, endTime);
 
         BlockedTimeSlotEntity blockedSlot = new BlockedTimeSlotEntity();
         blockedSlot.setTenantId(tenantId);
@@ -273,13 +273,13 @@ public class BlockedTimeSlotService {
      * Valida se não há conflito com bloqueios existentes em uma data específica.
      */
     private void validateNoConflictOnSpecificDate(
-            String tenantId,
+            UUID professionalId,
             LocalDate date,
             LocalTime startTime,
             LocalTime endTime) {
 
         List<BlockedTimeSlotEntity> conflicts = blockedTimeSlotRepository
-                .findConflictingBlocksOnSpecificDate(tenantId, date, startTime, endTime);
+                .findConflictingBlocksOnSpecificDateByProfessional(professionalId, date, startTime, endTime);
 
         if (!conflicts.isEmpty()) {
             throw new DuplicateResourceException(
@@ -291,13 +291,13 @@ public class BlockedTimeSlotService {
      * Valida se não há conflito com bloqueios recorrentes existentes.
      */
     private void validateNoConflictOnRecurringDay(
-            String tenantId,
+            UUID professionalId,
             DayOfWeek dayOfWeek,
             LocalTime startTime,
             LocalTime endTime) {
 
         List<BlockedTimeSlotEntity> conflicts = blockedTimeSlotRepository
-                .findConflictingRecurringBlocks(tenantId, dayOfWeek, startTime, endTime);
+                .findConflictingRecurringBlocksByProfessional(professionalId, dayOfWeek, startTime, endTime);
 
         if (!conflicts.isEmpty()) {
             throw new DuplicateResourceException(
