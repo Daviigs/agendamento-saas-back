@@ -10,8 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * Controller REST para gerenciamento de horários de trabalho dos profissionais.
- * Permite configurar horários personalizados por tenant.
+ * Controller REST para gerenciamento de horários de funcionamento do tenant.
+ * O horário é único por tenant — todos os profissionais compartilham o mesmo expediente.
  */
 @RestController
 @RequestMapping("/working-hours")

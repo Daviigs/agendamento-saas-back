@@ -221,7 +221,7 @@ public class BlockedTimeSlotService {
     }
 
     /**
-     * Verifica se um horário específico está bloqueado em uma data.
+     * Verifica se um horário específico está bloqueado em uma data (escopo do tenant).
      *
      * @param date Data a verificar
      * @param time Horário a verificar
@@ -235,7 +235,23 @@ public class BlockedTimeSlotService {
     }
 
     /**
-     * Verifica se um intervalo de tempo está bloqueado em uma data.
+     * Verifica se um horário específico está bloqueado para um profissional em uma data.
+     * Considera apenas bloqueios do profissional informado.
+     *
+     * @param professionalId ID do profissional
+     * @param date Data a verificar
+     * @param time Horário a verificar
+     * @return true se o horário está bloqueado para o profissional
+     */
+    public boolean isTimeSlotBlockedForProfessional(UUID professionalId, LocalDate date, LocalTime time) {
+        List<BlockedTimeSlotEntity> blockedSlots = getBlockedTimeSlotsForProfessionalAndDate(professionalId, date);
+
+        return blockedSlots.stream()
+                .anyMatch(block -> isTimeWithinBlock(time, block.getStartTime(), block.getEndTime()));
+    }
+
+    /**
+     * Verifica se um intervalo de tempo está bloqueado em uma data (escopo do tenant).
      *
      * @param date      Data a verificar
      * @param startTime Início do intervalo
@@ -244,6 +260,23 @@ public class BlockedTimeSlotService {
      */
     public boolean isIntervalBlocked(LocalDate date, LocalTime startTime, LocalTime endTime) {
         List<BlockedTimeSlotEntity> blockedSlots = getBlockedTimeSlotsForDate(date);
+
+        return blockedSlots.stream()
+                .anyMatch(block -> hasTimeOverlap(startTime, endTime, block.getStartTime(), block.getEndTime()));
+    }
+
+    /**
+     * Verifica se um intervalo de tempo está bloqueado para um profissional específico em uma data.
+     * Considera apenas bloqueios do profissional informado.
+     *
+     * @param professionalId ID do profissional
+     * @param date      Data a verificar
+     * @param startTime Início do intervalo
+     * @param endTime   Fim do intervalo
+     * @return true se há algum bloqueio no intervalo para o profissional
+     */
+    public boolean isIntervalBlockedForProfessional(UUID professionalId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        List<BlockedTimeSlotEntity> blockedSlots = getBlockedTimeSlotsForProfessionalAndDate(professionalId, date);
 
         return blockedSlots.stream()
                 .anyMatch(block -> hasTimeOverlap(startTime, endTime, block.getStartTime(), block.getEndTime()));

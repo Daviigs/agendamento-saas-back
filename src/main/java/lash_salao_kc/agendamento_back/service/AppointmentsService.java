@@ -225,7 +225,7 @@ public class AppointmentsService {
         LocalTime endTime = startTime.plusMinutes(totalDuration);
 
         validateBusinessHours(startTime, endTime);
-        validateNoTimeSlotBlocks(date, startTime, endTime);
+        validateNoTimeSlotBlocks(professionalId, date, startTime, endTime);
         validateNoConflicts(professionalId, date, startTime, endTime);
 
         AppointmentsEntity appointment = buildAppointment(
@@ -299,15 +299,19 @@ public class AppointmentsService {
     }
 
     /**
-     * Valida se não há bloqueios de horário no período desejado.
+     * Valida se não há bloqueios de horário no período desejado para o profissional.
      *
      * Considera a flag horarioFlexivel do tenant:
      * - Modo RÍGIDO (false): Valida o intervalo completo (início até fim)
      * - Modo FLEXÍVEL (true): Valida apenas se o horário de INÍCIO não está bloqueado
      *
+     * @param professionalId ID do profissional
+     * @param date Data do agendamento
+     * @param startTime Horário de início
+     * @param endTime Horário de término
      * @throws BusinessException se houver bloqueio de horário
      */
-    private void validateNoTimeSlotBlocks(LocalDate date, LocalTime startTime, LocalTime endTime) {
+    private void validateNoTimeSlotBlocks(UUID professionalId, LocalDate date, LocalTime startTime, LocalTime endTime) {
         // Obter configuração de horário de trabalho do tenant para verificar o modo
         TenantWorkingHoursEntity workingHours = workingHoursService.getCurrentTenantWorkingHours();
         boolean isFlexible = Boolean.TRUE.equals(workingHours.getHorarioFlexivel());
@@ -315,7 +319,8 @@ public class AppointmentsService {
         if (isFlexible) {
             // Modo FLEXÍVEL: Apenas o horário de INÍCIO não pode estar bloqueado
             // O agendamento pode atravessar bloqueios
-            List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService.getBlockedTimeSlotsForDate(date);
+            List<BlockedTimeSlotEntity> blockedSlots = blockedTimeSlotService
+                    .getBlockedTimeSlotsForProfessionalAndDate(professionalId, date);
 
             for (BlockedTimeSlotEntity block : blockedSlots) {
                 LocalTime blockStart = block.getStartTime();
@@ -332,8 +337,8 @@ public class AppointmentsService {
             log.debug("✅ Modo FLEXÍVEL: Horário de início {} está livre (agendamento pode atravessar bloqueios)", startTime);
 
         } else {
-            // Modo RÍGIDO: Valida o intervalo completo (comportamento original)
-            if (blockedTimeSlotService.isIntervalBlocked(date, startTime, endTime)) {
+            // Modo RÍGIDO: Valida o intervalo completo filtrado pelo profissional
+            if (blockedTimeSlotService.isIntervalBlockedForProfessional(professionalId, date, startTime, endTime)) {
                 throw new BusinessException(
                         String.format("Não é possível agendar entre %s e %s. Este horário está bloqueado.",
                                 startTime, endTime));

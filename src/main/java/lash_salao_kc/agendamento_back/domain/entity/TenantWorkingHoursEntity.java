@@ -10,8 +10,8 @@ import java.time.LocalTime;
 import java.util.UUID;
 
 /**
- * Entidade que representa o horário de trabalho de cada profissional (tenant).
- * Cada tenant possui seu próprio horário de funcionamento.
+ * Entidade que representa o horário de funcionamento do TENANT.
+ * O horário é único por tenant — todos os profissionais compartilham o mesmo expediente.
  *
  * Exemplos:
  * - kc: 09:00 às 18:00
@@ -32,19 +32,20 @@ public class TenantWorkingHoursEntity {
     private UUID id;
 
     /**
-     * ID do tenant (profissional/colaborador).
-     * Mantido por compatibilidade, mas o vínculo real é através do professional.
+     * ID do tenant ao qual o horário de funcionamento pertence.
+     * Este é o identificador principal — o horário é do tenant.
      */
     @NotNull
     @Column(name = "tenant_id", nullable = false)
     private String tenantId;
 
     /**
-     * Profissional ao qual o horário de trabalho pertence.
+     * Coluna mantida por compatibilidade com o schema existente.
+     * NÃO deve ser usada para diferenciar horários — deve ser sempre NULL.
+     * O horário de funcionamento é do TENANT, não do profissional.
      */
-    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "professional_id", nullable = false)
+    @JoinColumn(name = "professional_id", nullable = true)
     private ProfessionalEntity professional;
 
     /**

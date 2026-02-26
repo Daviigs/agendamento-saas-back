@@ -1,12 +1,9 @@
 package lash_salao_kc.agendamento_back.service;
 
 import lash_salao_kc.agendamento_back.config.TenantContext;
-    import lash_salao_kc.agendamento_back.domain.entity.ProfessionalEntity;
-import lash_salao_kc.agendamento_back.domain.entity.TenantEntity;
 import lash_salao_kc.agendamento_back.domain.entity.TenantWorkingHoursEntity;
 import lash_salao_kc.agendamento_back.exception.BusinessException;
 import lash_salao_kc.agendamento_back.exception.ResourceNotFoundException;
-import lash_salao_kc.agendamento_back.repository.ProfessionalRepository;
 import lash_salao_kc.agendamento_back.repository.TenantWorkingHoursRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,13 +11,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Serviço responsável pelo gerenciamento de horários de trabalho dos tenants (profissionais).
- * Cada tenant pode ter seu próprio horário de funcionamento personalizado.
+ * Serviço responsável pelo gerenciamento de horários de funcionamento dos tenants.
+ * O horário é único por tenant — todos os profissionais compartilham o mesmo expediente.
  */
 @Slf4j
 @Service
@@ -28,8 +24,6 @@ import java.util.UUID;
 public class TenantWorkingHoursService {
 
     private final TenantWorkingHoursRepository workingHoursRepository;
-    private final ProfessionalRepository professionalRepository;
-    private final TenantService tenantService;
 
     // Horários padrão caso o tenant não tenha configuração específica
     private static final LocalTime DEFAULT_START_TIME = LocalTime.of(9, 0);
@@ -59,18 +53,17 @@ public class TenantWorkingHoursService {
     }
 
     /**
-     * Obtém o horário de trabalho de um profissional específico.
-     * Se não existir configuração, retorna horários padrão.
+     * Obtém o horário de trabalho para um profissional.
+     * SEMPRE retorna o horário do TENANT, ignorando professionalId.
+     * Todos os profissionais do mesmo tenant usam o mesmo horário.
      *
-     * @param professionalId ID do profissional
-     * @return Horário de trabalho configurado ou padrão
+     * @param professionalId ID do profissional (ignorado — usado apenas para log)
+     * @return Horário de trabalho do tenant
      */
     public TenantWorkingHoursEntity getWorkingHoursByProfessional(UUID professionalId) {
-        return workingHoursRepository.findByProfessionalId(professionalId)
-                .orElseGet(() -> {
-                    String tenantId = TenantContext.getTenantId();
-                    return createDefaultWorkingHours(tenantId);
-                });
+        String tenantId = TenantContext.getTenantId();
+        log.debug("Buscando horário do tenant {} (solicitado via professionalId {})", tenantId, professionalId);
+        return getWorkingHours(tenantId);
     }
 
     /**
@@ -87,33 +80,8 @@ public class TenantWorkingHoursService {
     }
 
     /**
-     * Busca ou cria o primeiro profissional de um tenant.
-     * Necessário porque TenantWorkingHours precisa estar associado a um professional.
-     */
-    private ProfessionalEntity getOrCreateProfessionalForTenant(String tenantId) {
-        TenantEntity tenant = tenantService.getTenantByKey(tenantId);
-
-        // Busca profissionais existentes do tenant
-        List<ProfessionalEntity> professionals = professionalRepository.findByTenantId(tenant.getId());
-
-        if (!professionals.isEmpty()) {
-            return professionals.getFirst(); // Retorna o primeiro profissional
-        }
-
-        // Se não existe nenhum profissional, cria um profissional padrão
-        log.warn("Tenant {} não possui profissionais. Criando profissional padrão.", tenantId);
-        ProfessionalEntity professional = new ProfessionalEntity();
-        professional.setTenant(tenant);
-        professional.setProfessionalName("Profissional Padrão - " + tenant.getBusinessName());
-        professional.setProfessionalEmail(tenant.getContactEmail() != null ? tenant.getContactEmail() : "contato@" + tenantId + ".com");
-        professional.setProfessionalPhone(tenant.getContactPhone() != null ? tenant.getContactPhone() : "00000000000");
-        professional.setActive(true);
-
-        return professionalRepository.save(professional);
-    }
-
-    /**
      * Configura ou atualiza o horário de trabalho de um tenant.
+     * O registro é criado SEM professional_id (horário global do tenant).
      *
      * @param startTime           Horário de início
      * @param endTime             Horário de término
@@ -150,20 +118,16 @@ public class TenantWorkingHoursService {
             log.info("Atualizando horário de trabalho do tenant {} (flexível: {})", tenantId, horarioFlexivel);
             return workingHoursRepository.save(workingHours);
         } else {
-            // Cria nova configuração
-            // Busca ou cria um profissional para associar ao working hours
-            ProfessionalEntity professional = getOrCreateProfessionalForTenant(tenantId);
-
+            // Cria nova configuração SEM vínculo com profissional
             TenantWorkingHoursEntity workingHours = new TenantWorkingHoursEntity();
             workingHours.setTenantId(tenantId);
-            workingHours.setProfessional(professional);
+            workingHours.setProfessional(null); // Horário é do TENANT, não do profissional
             workingHours.setStartTime(startTime);
             workingHours.setEndTime(endTime);
             workingHours.setSlotIntervalMinutes(slotIntervalMinutes);
             workingHours.setHorarioFlexivel(horarioFlexivel);
             workingHours.setActive(true);
-            log.info("Criando horário de trabalho para tenant {} com profissional {} (flexível: {})",
-                    tenantId, professional.getId(), horarioFlexivel);
+            log.info("Criando horário de trabalho para tenant {} (flexível: {})", tenantId, horarioFlexivel);
             return workingHoursRepository.save(workingHours);
         }
     }
